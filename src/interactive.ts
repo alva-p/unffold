@@ -1,4 +1,3 @@
-import { default as inquirer } from 'inquirer'
 import { isAddress, getAddress } from 'viem'
 import { c } from './output/colors.js'
 import { CHAINS } from './core/rpc.js'
@@ -12,31 +11,31 @@ import { runWatch } from './commands/watch.js'
 import { runExport } from './commands/export.js'
 import type { Config } from './types.js'
 
-const ACTIONS = [
-  { name: 'inspect         full fingerprint', value: 'inspect' },
-  { name: 'proxy           proxy chain + upgrade history', value: 'proxy' },
-  { name: 'tree            inheritance tree + standards', value: 'tree' },
-  { name: 'security        security surface scan', value: 'security' },
-  { name: 'read            call a view function', value: 'read' },
-  { name: 'storage         read a storage slot or variable', value: 'storage' },
-  { name: 'watch           live event stream', value: 'watch' },
-  { name: 'export          export to foundry | abi | json', value: 'export' },
-  new inquirer.Separator(),
-  { name: 'exit', value: 'exit' },
-]
-
 async function askAction(): Promise<string> {
+  const { default: inquirer } = await import('inquirer')
   const { action } = await inquirer.prompt([{
     type: 'list',
     name: 'action',
     message: c.bold('What do you want to do?'),
-    choices: ACTIONS,
+    choices: [
+      { name: 'inspect         full fingerprint', value: 'inspect' },
+      { name: 'proxy           proxy chain + upgrade history', value: 'proxy' },
+      { name: 'tree            inheritance tree + standards', value: 'tree' },
+      { name: 'security        security surface scan', value: 'security' },
+      { name: 'read            call a view function', value: 'read' },
+      { name: 'storage         read a storage slot or variable', value: 'storage' },
+      { name: 'watch           live event stream', value: 'watch' },
+      { name: 'export          export to foundry | abi | json', value: 'export' },
+      new inquirer.Separator(),
+      { name: 'exit', value: 'exit' },
+    ],
     pageSize: 12,
   }])
   return action as string
 }
 
 async function askAddress(): Promise<string> {
+  const { default: inquirer } = await import('inquirer')
   const { raw } = await inquirer.prompt([{
     type: 'input',
     name: 'raw',
@@ -47,6 +46,7 @@ async function askAddress(): Promise<string> {
 }
 
 async function askChain(config: Config): Promise<string> {
+  const { default: inquirer } = await import('inquirer')
   const defaultChain = config.defaultChain ?? 'mainnet'
   const { chain } = await inquirer.prompt([{
     type: 'list',
@@ -68,6 +68,7 @@ async function askExtra(action: string): Promise<string> {
   }
   const message = prompts[action]
   if (!message) return ''
+  const { default: inquirer } = await import('inquirer')
   const { value } = await inquirer.prompt([{
     type: 'input',
     name: 'value',
@@ -100,6 +101,7 @@ async function runAction(
 }
 
 async function askContinue(): Promise<'new' | 'same' | 'exit'> {
+  const { default: inquirer } = await import('inquirer')
   const { next } = await inquirer.prompt([{
     type: 'list',
     name: 'next',
