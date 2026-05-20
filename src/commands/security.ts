@@ -18,6 +18,26 @@ const GUARD_MODIFIERS = [
   'restricted',
 ]
 
+// Name patterns that suggest a function should have access control
+const PRIVILEGED_PATTERNS = [
+  /^set[A-Z]/, /^add[A-Z]/, /^remove[A-Z]/, /^update[A-Z]/,
+  /^change[A-Z]/, /^replace[A-Z]/, /^toggle[A-Z]/,
+  /pause$|^pause|^unpause/,
+  /freeze|lock(?!ed)|unlock/i,
+  /upgrade|upgradeTo/i,
+  /^grant|^revoke|^renounce/,
+  /whitelist|blacklist|allowlist|denylist/i,
+  /^sweep|^rescue|^recover[A-Z]/,
+  /emergency/i,
+  /^mint(?!ed)|^burn(?!ed)/,
+  /admin|owner|operator|guardian|manager/i,
+  /^initialize$|^init$/,
+]
+
+function looksPrivileged(name: string): boolean {
+  return PRIVILEGED_PATTERNS.some(p => p.test(name))
+}
+
 function validateAddress(raw: string): string {
   if (!isAddress(raw)) throw new Error(`Invalid EVM address: ${raw}`)
   return getAddress(raw)
@@ -47,10 +67,15 @@ export async function runSecurity(
 
     const stateChanging = (contract.abi || []).filter(isStateChanging)
     const modifierByFunction = new Map((analysis?.functions || []).map(fn => [fn.name, fn.modifiers]))
-    const unprotected = stateChanging.filter(fn => {
-      const modifiers = modifierByFunction.get(fn.name || '') || []
+    const unprotected = analysis ? stateChanging.filter(fn => {
+      const name = fn.name || ''
+      // Skip functions not explicitly defined in this source (inherited — unknown modifier status)
+      if (!modifierByFunction.has(name)) return false
+      // Only flag functions whose names suggest they should be protected
+      if (!looksPrivileged(name)) return false
+      const modifiers = modifierByFunction.get(name) || []
       return modifiers.length === 0 || !modifiers.some(mod => GUARD_MODIFIERS.includes(mod) || mod.startsWith('only'))
-    })
+    }) : []
 
     const result = {
       upgradeable: Boolean(proxy),
@@ -89,7 +114,7 @@ export async function runSecurity(
 
     if (!analysis) {
       console.log()
-      console.log(`  ${c.warn('Modifier analysis requires verified, parseable source code.')}`)
+      console.log(`  ${c.muted('○ Modifier analysis unavailable — contract source not verified')}`)
     }
     console.log()
   } catch (err) {

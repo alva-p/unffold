@@ -196,7 +196,11 @@ export async function getUpgradeHistory(
   try {
     const logs = await client.getLogs({
       address: address as `0x${string}`,
-      topics: [UPGRADED_TOPIC],
+      event: {
+        type: 'event',
+        name: 'Upgraded',
+        inputs: [{ name: 'implementation', type: 'address', indexed: true }],
+      },
       fromBlock: 0n,
     })
     return logs.map(log => ({

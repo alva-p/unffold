@@ -8,10 +8,12 @@
   "main": "./dist/index.cjs",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsup",
+    "typecheck": "tsc --noEmit",
     "dev": "npx ts-node src/index.ts",
     "start": "node dist/index.cjs"
   },
