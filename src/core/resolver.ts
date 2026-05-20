@@ -29,7 +29,10 @@ async function fetchFromEtherscan(
   if (!apiKey) return null
 
   const chain = getChainConfig(chainName)
-  const url = `${chain.explorerApiUrl}?chainid=${chain.chainId}&module=contract&action=getsourcecode&address=${address}&apikey=${apiKey}`
+  const apiBase = chain.explorerApiUrl.includes('etherscan.io') || chain.explorerApiUrl.includes('arbiscan.io') || chain.explorerApiUrl.includes('basescan.org') || chain.explorerApiUrl.includes('polygonscan.com')
+    ? 'https://api.etherscan.io/v2/api'
+    : chain.explorerApiUrl
+  const url = `${apiBase}?chainid=${chain.chainId}&module=contract&action=getsourcecode&address=${address}&apikey=${apiKey}`
 
   const data = await fetchWithRetry(url) as {
     status: string

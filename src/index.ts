@@ -2,6 +2,13 @@
 import { Command } from 'commander'
 import { printBanner } from './output/banner.js'
 import { runInspect } from './commands/inspect.js'
+import { runExport } from './commands/export.js'
+import { runProxy } from './commands/proxy.js'
+import { runRead } from './commands/read.js'
+import { runSecurity } from './commands/security.js'
+import { runStorage } from './commands/storage.js'
+import { runTree } from './commands/tree.js'
+import { runWatch } from './commands/watch.js'
 import { loadConfig } from './core/config.js'
 import { c } from './output/colors.js'
 import { CHAINS } from './core/rpc.js'
@@ -13,7 +20,7 @@ program
   .description('Unfold any EVM contract in seconds')
   .version('0.1.0')
   .argument('<address>', 'EVM contract address')
-  .option('--chain <name>', 'Target chain', 'mainnet')
+  .option('--chain <name>', 'Target chain')
   .option('--rpc <url>', 'Custom RPC URL')
   .option('--json', 'Output as JSON (no banner or interactive menu)')
   .option('--proxy', 'Full proxy analysis')
@@ -21,9 +28,10 @@ program
   .option('--security', 'Security surface scan')
   .option('--watch <event>', 'Watch contract events live')
   .option('--storage <slot>', 'Read a storage slot or variable name')
+  .option('--read <call>', 'Call any view function, e.g. balanceOf(0x...)')
   .option('--export <format>', 'Export: foundry | abi | json')
   .action(async (address: string, options: {
-    chain: string
+    chain?: string
     rpc?: string
     json?: boolean
     proxy?: boolean
@@ -31,6 +39,7 @@ program
     security?: boolean
     watch?: string
     storage?: string
+    read?: string
     export?: string
   }) => {
     const isJson = options.json === true
@@ -50,9 +59,39 @@ program
       process.exit(1)
     }
 
-    if (options.proxy || options.tree || options.security || options.watch || options.storage || options.export) {
-      console.log(c.muted(`\n  Advanced flags (--proxy, --tree, --security, etc.) are coming in Phase 2 & 3.\n`))
-      console.log(c.muted(`  Running full fingerprint instead...\n`))
+    if (options.proxy) {
+      await runProxy(address, chain, config, options.rpc, isJson)
+      return
+    }
+
+    if (options.tree) {
+      await runTree(address, chain, config, isJson)
+      return
+    }
+
+    if (options.security) {
+      await runSecurity(address, chain, config, options.rpc, isJson)
+      return
+    }
+
+    if (options.watch) {
+      await runWatch(address, options.watch, chain, config, options.rpc)
+      return
+    }
+
+    if (options.storage) {
+      await runStorage(address, options.storage, chain, config, options.rpc, isJson)
+      return
+    }
+
+    if (options.read) {
+      await runRead(address, options.read, chain, config, options.rpc, isJson)
+      return
+    }
+
+    if (options.export) {
+      await runExport(address, options.export, chain, config, isJson)
+      return
     }
 
     await runInspect(address, chain, config, options.rpc, isJson)
@@ -65,7 +104,7 @@ program
   .description('Initialize config file')
   .action(async () => {
     const { default: inquirer } = await import('inquirer')
-    const { saveConfig } = await import('./core/config.js')
+    const { getConfigPath, saveConfig } = await import('./core/config.js')
 
     printBanner()
     console.log(c.muted('  Initializing ~/.unfold/config.json\n'))
@@ -83,15 +122,40 @@ program
         choices: Object.keys(CHAINS),
         default: 'mainnet',
       },
+      {
+        type: 'confirm',
+        name: 'addRpcOverrides',
+        message: 'Add custom RPC URLs now?',
+        default: false,
+      },
+      {
+        type: 'checkbox',
+        name: 'rpcChains',
+        message: 'Chains to configure:',
+        choices: Object.keys(CHAINS),
+        when: answers => answers.addRpcOverrides === true,
+      },
     ])
+
+    const rpcOverrides: Record<string, string> = {}
+    for (const chainName of answers.rpcChains || []) {
+      const answer = await inquirer.prompt([{
+        type: 'input',
+        name: 'rpcUrl',
+        message: `${chainName} RPC URL:`,
+        validate: (value: string) => value.startsWith('http://') || value.startsWith('https://') ? true : 'Enter an http(s) URL',
+      }])
+      if (answer.rpcUrl) rpcOverrides[chainName as string] = answer.rpcUrl as string
+    }
 
     const cfg = {
       defaultChain: answers.defaultChain as string,
       ...(answers.etherscanApiKey ? { etherscanApiKey: answers.etherscanApiKey as string } : {}),
+      ...(Object.keys(rpcOverrides).length > 0 ? { rpcOverrides } : {}),
     }
 
     saveConfig(cfg)
-    console.log(c.success('\n  ✓ Config saved to ~/.unfold/config.json\n'))
+    console.log(c.success(`\n  ✓ Config saved to ${getConfigPath()}\n`))
   })
 
 program.parse()

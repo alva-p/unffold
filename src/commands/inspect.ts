@@ -7,8 +7,16 @@ import { detectStandards } from '../core/standards.js'
 import { printFingerprint } from '../output/fingerprint.js'
 import { showMenu } from '../output/menu.js'
 import { c } from '../output/colors.js'
+import { printEoaInfo } from '../output/eoa.js'
 import type { Config } from '../types.js'
 import { createClient, CHAINS } from '../core/rpc.js'
+import { runExport } from './export.js'
+import { runProxy } from './proxy.js'
+import { runRead } from './read.js'
+import { runSecurity } from './security.js'
+import { runStorage } from './storage.js'
+import { runTree } from './tree.js'
+import { runWatch } from './watch.js'
 
 function validateAddress(raw: string): string {
   if (!isAddress(raw)) {
@@ -60,9 +68,29 @@ export async function runInspect(
 
     if (!isContract) {
       spinner?.stop()
-      console.log()
-      console.log(`  ${c.warn('⚠ This address has no bytecode — it may be an EOA (wallet), not a contract.')}`)
-      console.log()
+      let balance: bigint | undefined
+      let transactionCount: number | undefined
+      try {
+        [balance, transactionCount] = await Promise.all([
+          client.getBalance({ address: address as `0x${string}` }),
+          client.getTransactionCount({ address: address as `0x${string}` }),
+        ])
+      } catch {
+        // keep the EOA output useful even if one RPC method fails
+      }
+
+      if (jsonOutput) {
+        console.log(JSON.stringify({
+          address,
+          chain: chainConfig.name,
+          type: 'eoa',
+          balance: balance?.toString() ?? null,
+          transactionCount: transactionCount ?? null,
+        }, null, 2))
+        return
+      }
+
+      printEoaInfo(address, chainConfig.name, balance, transactionCount)
       return
     }
 
@@ -102,6 +130,30 @@ export async function runInspect(
 
     const action = await showMenu()
     if (!action || action === 'exit') return
+
+    if (action === 'proxy') return runProxy(address, chainName, config, rpcOverride, jsonOutput)
+    if (action === 'tree') return runTree(address, chainName, config, jsonOutput)
+    if (action === 'security') return runSecurity(address, chainName, config, rpcOverride, jsonOutput)
+    if (action === 'export') return runExport(address, 'foundry', chainName, config, jsonOutput)
+
+    if (action === 'storage' || action === 'watch' || action === 'read') {
+      const { default: inquirer } = await import('inquirer')
+      const answer = await inquirer.prompt([{
+        type: 'input',
+        name: 'value',
+        message: action === 'storage'
+          ? 'Storage slot/name/mapping:'
+          : action === 'watch'
+            ? 'Event name (or all):'
+            : 'View call:',
+        default: action === 'watch' ? 'all' : undefined,
+      }])
+      const value = String(answer.value || '').trim()
+      if (!value) return
+      if (action === 'storage') return runStorage(address, value, chainName, config, rpcOverride, jsonOutput)
+      if (action === 'watch') return runWatch(address, value, chainName, config, rpcOverride)
+      return runRead(address, value, chainName, config, rpcOverride, jsonOutput)
+    }
 
     if (action === 'etherscan') {
       const baseUrl = chainConfig.explorerApiUrl.replace('/api', '')

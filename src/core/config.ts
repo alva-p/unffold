@@ -6,6 +6,10 @@ import type { Config } from '../types.js'
 const CONFIG_DIR = join(homedir(), '.unfold')
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json')
 
+export function getConfigPath(): string {
+  return CONFIG_FILE
+}
+
 export function loadConfig(): Config {
   const config: Config = {}
 

@@ -64,3 +64,46 @@ export interface DetectedStandards {
   accessControl: boolean
   reentrancyGuard: boolean
 }
+
+export interface ContractNode {
+  name: string
+  parents: string[]
+}
+
+export interface AnalyzedFunction {
+  name: string
+  visibility: string | null
+  stateMutability: string | null
+  modifiers: string[]
+}
+
+export interface AnalyzedEventInput {
+  name: string
+  type: string
+  indexed: boolean
+}
+
+export interface AnalyzedEvent {
+  name: string
+  inputs: AnalyzedEventInput[]
+}
+
+export interface AnalyzedError {
+  name: string
+}
+
+export interface AnalyzedStateVariable {
+  name: string
+  type: string
+  visibility: string | null
+  slot?: number
+}
+
+export interface AstAnalysis {
+  inheritanceTree: ContractNode[]
+  functions: AnalyzedFunction[]
+  events: AnalyzedEvent[]
+  errors: AnalyzedError[]
+  stateVariables: AnalyzedStateVariable[]
+  imports: string[]
+}
