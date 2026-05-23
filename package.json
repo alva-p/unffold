@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Unfold any EVM contract in seconds",
   "bin": {
-    "unfold": "./dist/index.cjs"
+    "unffold": "./dist/index.cjs"
   },
   "main": "./dist/index.cjs",
   "files": [

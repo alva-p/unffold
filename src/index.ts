@@ -17,7 +17,7 @@ import { CHAINS } from './core/rpc.js'
 const program = new Command()
 
 program
-  .name('unfold')
+  .name('unffold')
   .description('Unfold any EVM contract in seconds')
   .version('0.1.0')
   .argument('[address]', 'EVM contract address (omit to enter interactive mode)')
