@@ -1,5 +1,5 @@
 {
-  "name": "unfold",
+  "name": "unfold-evm",
   "version": "0.1.0",
   "description": "Unfold any EVM contract in seconds",
   "bin": {

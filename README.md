@@ -18,7 +18,7 @@
 ## Install
 
 ```bash
-npm install -g unfold
+npm install -g unfold-evm
 ```
 
 Requires Node.js 18+.
