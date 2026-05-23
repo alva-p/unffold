@@ -93,7 +93,8 @@ async function runAction(
   extra: string,
   rpc?: string
 ): Promise<void> {
-  console.clear()
+  const rows = process.stdout.rows ?? 24
+  process.stdout.write('\n'.repeat(rows))
   switch (action) {
     case 'inspect':        return runInspect(address, chain, config, rpc, false, false)
     case 'proxy':          return runProxy(address, chain, config, rpc)

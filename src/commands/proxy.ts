@@ -33,9 +33,7 @@ export async function runProxy(
   jsonOutput = false
 ): Promise<void> {
   const address = validateAddress(rawAddress)
-  if (!jsonOutput) {
-    process.stdout.write(`\n  ${c.muted(`Inspecting proxy for ${address.slice(0, 6)}...${address.slice(-4)}...`)}\n`)
-  }
+  if (!jsonOutput) process.stdout.write(`  ${c.muted(`Inspecting proxy for ${address.slice(0, 6)}...${address.slice(-4)}...`)}\n`)
 
   try {
     const client = createClient(chainName, config, rpcOverride)
@@ -43,7 +41,6 @@ export async function runProxy(
     const proxy = await resolveProxyChain(address, contract.abi, client)
     const history = proxy ? await getUpgradeHistory(address, client) : []
 
-    if (!jsonOutput) process.stdout.write('\x1B[1A\x1B[2K')
     if (jsonOutput) {
       console.log(JSON.stringify({
         proxy,
@@ -91,7 +88,6 @@ export async function runProxy(
     }
     console.log()
   } catch (err) {
-    if (!jsonOutput) process.stdout.write('\x1B[1A\x1B[2K')
     console.error(`\n  ${c.danger('Error:')} ${(err as Error).message}\n`)
     process.exit(1)
   }

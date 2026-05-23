@@ -54,9 +54,7 @@ export async function runSecurity(
   jsonOutput = false
 ): Promise<void> {
   const address = validateAddress(rawAddress)
-  if (!jsonOutput) {
-    process.stdout.write(`\n  ${c.muted(`Scanning security surface for ${address.slice(0, 6)}...${address.slice(-4)}...`)}\n`)
-  }
+  if (!jsonOutput) process.stdout.write(`  ${c.muted(`Scanning security surface for ${address.slice(0, 6)}...${address.slice(-4)}...`)}\n`)
 
   try {
     const client = createClient(chainName, config, rpcOverride)
@@ -89,7 +87,6 @@ export async function runSecurity(
       proxy,
     }
 
-    if (!jsonOutput) process.stdout.write('\x1B[1A\x1B[2K')
     if (jsonOutput) {
       console.log(JSON.stringify(result, null, 2))
       return
@@ -127,7 +124,6 @@ export async function runSecurity(
     }
     console.log()
   } catch (err) {
-    if (!jsonOutput) process.stdout.write('\x1B[1A\x1B[2K')
     console.error(`\n  ${c.danger('Error:')} ${(err as Error).message}\n`)
     process.exit(1)
   }

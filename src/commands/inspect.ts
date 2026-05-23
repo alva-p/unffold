@@ -49,9 +49,7 @@ export async function runInspect(
     return
   }
 
-  if (!jsonOutput) {
-    process.stdout.write(`\n  ${c.muted(`Resolving ${shortAddr(address)} on ${chainConfig.name}...`)}\n`)
-  }
+  if (!jsonOutput) process.stdout.write(`  ${c.muted(`Resolving ${shortAddr(address)} on ${chainConfig.name}...`)}\n`)
 
   try {
     const client = createClient(chainName, config, rpcOverride)
@@ -131,8 +129,6 @@ export async function runInspect(
       return
     }
 
-    // overwrite the "Resolving..." line
-    process.stdout.write('\x1B[1A\x1B[2K')
     console.log()
     if (contract.isVerified) {
       console.log(`  ${c.success('✓')} ${c.muted('Source verified on Etherscan')}`)
@@ -154,7 +150,6 @@ export async function runInspect(
       await runInteractiveLoop(address, chainName, config, rpcOverride)
     }
   } catch (err) {
-    process.stdout.write('\x1B[1A\x1B[2K')
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`\n  ${c.danger('Error:')} ${msg}\n`)
     process.exit(1)
