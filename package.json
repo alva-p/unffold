@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Unfold any EVM contract in seconds",
   "bin": {
-    "unffold": "./dist/index.cjs"
+    "unffold": "dist/index.cjs"
   },
   "main": "./dist/index.cjs",
   "files": [
@@ -32,7 +32,7 @@
   "author": "alva-p",
   "repository": {
     "type": "git",
-    "url": "https://github.com/alva-p/unffold.git"
+    "url": "git+https://github.com/alva-p/unffold.git"
   },
   "homepage": "https://github.com/alva-p/unffold#readme",
   "bugs": {
