@@ -5,7 +5,7 @@ Thanks for your interest. Here's everything you need to get started.
 ## Setup
 
 ```bash
-git clone https://github.com/alva-p/unfold
+git clone https://github.com/alva-p/unffold
 cd unfold
 npm install
 npm run build

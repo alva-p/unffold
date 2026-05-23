@@ -32,11 +32,11 @@
   "author": "alva-p",
   "repository": {
     "type": "git",
-    "url": "https://github.com/alva-p/unfold.git"
+    "url": "https://github.com/alva-p/unffold.git"
   },
-  "homepage": "https://github.com/alva-p/unfold#readme",
+  "homepage": "https://github.com/alva-p/unffold#readme",
   "bugs": {
-    "url": "https://github.com/alva-p/unfold/issues"
+    "url": "https://github.com/alva-p/unffold/issues"
   },
   "dependencies": {
     "@solidity-parser/parser": "^0.20.2",

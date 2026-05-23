@@ -121,7 +121,7 @@ unfold config init
 PRs and issues are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```bash
-git clone https://github.com/alva-p/unfold
+git clone https://github.com/alva-p/unffold
 cd unfold
 npm install
 npm run build
