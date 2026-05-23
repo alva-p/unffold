@@ -1,4 +1,3 @@
-import ora from 'ora'
 import { isAddress, getAddress } from 'viem'
 import type { PublicClient } from 'viem'
 import { resolveContract } from '../core/resolver.js'
@@ -9,19 +8,16 @@ import { c } from '../output/colors.js'
 import { printEoaInfo } from '../output/eoa.js'
 import type { Config } from '../types.js'
 import { createClient, CHAINS } from '../core/rpc.js'
-import { runExport } from './export.js'
-import { runProxy } from './proxy.js'
-import { runRead } from './read.js'
-import { runSecurity } from './security.js'
-import { runStorage } from './storage.js'
-import { runTree } from './tree.js'
-import { runWatch } from './watch.js'
 
 function validateAddress(raw: string): string {
   if (!isAddress(raw)) {
     throw new Error(`Invalid EVM address: ${raw}`)
   }
   return getAddress(raw)
+}
+
+function shortAddr(addr: string): string {
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
 async function checkIsContract(client: PublicClient, address: `0x${string}`): Promise<boolean> {
@@ -52,10 +48,9 @@ export async function runInspect(
     return
   }
 
-  const spinner = jsonOutput ? null : ora({
-    text: `  Resolving ${c.address(address.slice(0, 6) + '...' + address.slice(-4))} on ${chainConfig.name}...`,
-    spinner: 'dots',
-  }).start()
+  if (!jsonOutput) {
+    process.stdout.write(`\n  ${c.muted(`Resolving ${shortAddr(address)} on ${chainConfig.name}...`)}\n`)
+  }
 
   try {
     const client = createClient(chainName, config, rpcOverride)
@@ -66,11 +61,10 @@ export async function runInspect(
     ])
 
     if (!isContract) {
-      spinner?.stop()
       let balance: bigint | undefined
       let transactionCount: number | undefined
       try {
-        [balance, transactionCount] = await Promise.all([
+        ;[balance, transactionCount] = await Promise.all([
           client.getBalance({ address: address as `0x${string}` }),
           client.getTransactionCount({ address: address as `0x${string}` }),
         ])
@@ -89,6 +83,7 @@ export async function runInspect(
         return
       }
 
+      process.stdout.write('\x1B[1A\x1B[2K')
       printEoaInfo(address, chainConfig.name, balance, transactionCount)
       return
     }
@@ -111,27 +106,52 @@ export async function runInspect(
     const standards = detectStandards(contract.abi || [], contract.sourceCode)
 
     let balance: bigint | undefined
+    let totalSupply: bigint | undefined
     try {
       balance = await client.getBalance({ address: address as `0x${string}` })
     } catch {
       // ignore
     }
 
-    spinner?.stop()
-    console.log()
+    if (standards.erc20 || standards.erc1155) {
+      try {
+        totalSupply = await client.readContract({
+          address: address as `0x${string}`,
+          abi: [{ name: 'totalSupply', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] }],
+          functionName: 'totalSupply',
+        }) as bigint
+      } catch {
+        // ignore if contract doesn't have totalSupply
+      }
+    }
 
     if (jsonOutput) {
       console.log(JSON.stringify({ contract, proxy, standards }, null, 2))
       return
     }
 
-    printFingerprint(contract, proxy, standards, chainConfig.name, balance)
+    // overwrite the "Resolving..." line
+    process.stdout.write('\x1B[1A\x1B[2K')
+    console.log()
+    if (contract.isVerified) {
+      console.log(`  ${c.success('✓')} ${c.muted('Source verified on Etherscan')}`)
+    }
+    const fnCount = (contract.abi || []).filter(i => i.type === 'function').length
+    const evCount = (contract.abi || []).filter(i => i.type === 'event').length
+    if (fnCount > 0) {
+      console.log(`  ${c.success('✓')} ${c.muted(`ABI parsed — ${fnCount} functions · ${evCount} events`)}`)
+    }
+    if (proxy) {
+      console.log(`  ${c.success('✓')} ${c.muted(`Proxy detected — ${proxy.pattern}`)}`)
+    }
+    console.log()
 
-    // Hand off to the interactive loop for this address
+    printFingerprint(contract, proxy, standards, chainConfig.name, balance, totalSupply)
+
     const { runInteractiveLoop } = await import('../interactive.js')
     await runInteractiveLoop(address, chainName, config, rpcOverride)
   } catch (err) {
-    spinner?.fail()
+    process.stdout.write('\x1B[1A\x1B[2K')
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`\n  ${c.danger('Error:')} ${msg}\n`)
     process.exit(1)

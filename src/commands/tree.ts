@@ -1,4 +1,3 @@
-import ora from 'ora'
 import { getAddress, isAddress } from 'viem'
 import { resolveContract } from '../core/resolver.js'
 import { detectStandards, standardsToLabels } from '../core/standards.js'
@@ -18,14 +17,16 @@ export async function runTree(
   jsonOutput = false
 ): Promise<void> {
   const address = validateAddress(rawAddress)
-  const spinner = jsonOutput ? null : ora({ text: `  Building inheritance tree for ${c.address(address)}...`, spinner: 'dots' }).start()
+  if (!jsonOutput) {
+    process.stdout.write(`\n  ${c.muted(`Building inheritance tree for ${address.slice(0, 6)}...${address.slice(-4)}...`)}\n`)
+  }
 
   try {
     const contract = await resolveContract(address, chainName, config)
     const standards = detectStandards(contract.abi || [], contract.sourceCode)
     const analysis = tryAnalyzeSource(contract.sourceCode)
 
-    spinner?.stop()
+    if (!jsonOutput) process.stdout.write('\x1B[1A\x1B[2K')
     if (jsonOutput) {
       console.log(JSON.stringify({ contract, standards, analysis }, null, 2))
       return
@@ -67,7 +68,7 @@ export async function runTree(
 
     console.log()
   } catch (err) {
-    spinner?.fail()
+    if (!jsonOutput) process.stdout.write('\x1B[1A\x1B[2K')
     console.error(`\n  ${c.danger('Error:')} ${(err as Error).message}\n`)
     process.exit(1)
   }

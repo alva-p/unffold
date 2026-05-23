@@ -25,7 +25,8 @@ export function printFingerprint(
   proxy: ProxyInfo | null,
   standards: DetectedStandards,
   chainName: string,
-  balance?: bigint
+  balance?: bigint,
+  totalSupply?: bigint
 ): void {
   const labels = standardsToLabels(standards)
   const labelStr = labels.map(l => c.address(`[${l}]`)).join(' ')
@@ -58,6 +59,7 @@ export function printFingerprint(
     style: { 'padding-left': 2, 'padding-right': 0, border: [], head: [] },
   })
 
+  table.push([c.muted('address'), c.address(contract.address)])
   table.push([c.muted('network'), `${chainName}  (chain ${contract.chainId})`])
   if (contract.compilerVersion) {
     table.push([c.muted('compiler'), `Solidity ${contract.compilerVersion.split('+')[0]}`])
@@ -70,7 +72,15 @@ export function printFingerprint(
   }
   if (balance !== undefined) {
     const eth = Number(balance) / 1e18
-    table.push([c.muted('balance'), `${eth.toFixed(4)} ETH`])
+    let balanceLine = `${eth.toFixed(4)} ETH`
+    if (totalSupply !== undefined) {
+      const supply = Number(totalSupply) / 1e18
+      const supplyStr = supply >= 1e6
+        ? `${(supply / 1e6).toFixed(2)}M`
+        : supply.toLocaleString('en-US', { maximumFractionDigits: 2 })
+      balanceLine += `  ${c.muted('· total supply')} ${supplyStr}`
+    }
+    table.push([c.muted('balance'), balanceLine])
   }
 
   console.log(table.toString())

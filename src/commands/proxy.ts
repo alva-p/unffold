@@ -1,4 +1,3 @@
-import ora from 'ora'
 import { getAddress, isAddress } from 'viem'
 import { createClient } from '../core/rpc.js'
 import { resolveContract } from '../core/resolver.js'
@@ -34,7 +33,9 @@ export async function runProxy(
   jsonOutput = false
 ): Promise<void> {
   const address = validateAddress(rawAddress)
-  const spinner = jsonOutput ? null : ora({ text: `  Inspecting proxy for ${c.address(address)}...`, spinner: 'dots' }).start()
+  if (!jsonOutput) {
+    process.stdout.write(`\n  ${c.muted(`Inspecting proxy for ${address.slice(0, 6)}...${address.slice(-4)}...`)}\n`)
+  }
 
   try {
     const client = createClient(chainName, config, rpcOverride)
@@ -42,7 +43,7 @@ export async function runProxy(
     const proxy = await resolveProxyChain(address, contract.abi, client)
     const history = proxy ? await getUpgradeHistory(address, client) : []
 
-    spinner?.stop()
+    if (!jsonOutput) process.stdout.write('\x1B[1A\x1B[2K')
     if (jsonOutput) {
       console.log(JSON.stringify({
         proxy,
@@ -83,9 +84,14 @@ export async function runProxy(
     console.log(`  ${proxy.pattern.includes('Diamond') ? c.success('✓') : c.muted('○')} Diamond (EIP-2535)`)
     console.log(`  ${proxy.pattern.includes('Beacon') ? c.success('✓') : c.muted('○')} Beacon Proxy`)
     console.log(`  ${proxy.pattern.includes('Minimal') ? c.success('✓') : c.muted('○')} Minimal Proxy EIP-1167`)
+
+    if (proxy.adminAddress) {
+      console.log()
+      console.log(`  ${c.warn('⚠')} ${c.muted('admin can upgrade without timelock')}`)
+    }
     console.log()
   } catch (err) {
-    spinner?.fail()
+    if (!jsonOutput) process.stdout.write('\x1B[1A\x1B[2K')
     console.error(`\n  ${c.danger('Error:')} ${(err as Error).message}\n`)
     process.exit(1)
   }

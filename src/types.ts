@@ -42,6 +42,7 @@ export interface ChainConfig {
   name: string
   chainId: number
   explorerApiUrl: string
+  explorerUrl: string
   rpcUrl: string
 }
 

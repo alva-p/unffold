@@ -1,48 +1,50 @@
-# unfold
+<p align="center">
+  <img src="https://img.shields.io/npm/v/unfold?color=4ec994&label=npm&style=flat-square" alt="npm version" />
+  <img src="https://img.shields.io/npm/l/unfold?color=7eb8f7&style=flat-square" alt="license" />
+  <img src="https://img.shields.io/node/v/unfold?color=f5c842&style=flat-square" alt="node" />
+</p>
 
-> Unfold any EVM contract in seconds.
+<p align="center">
+  <b>unfold</b> — inspect any EVM contract in seconds
+</p>
 
-`unfold` is a TypeScript CLI for quickly inspecting EVM contracts: identity, proxy chain, inheritance tree, ERC standards, storage, events, and security surface.
+<p align="center">
+  <!-- demo GIF goes here -->
+  <img src="docs/demo.gif" alt="unfold demo" width="700" />
+</p>
+
+---
+
+## Install
 
 ```bash
 npm install -g unfold
+```
+
+Requires Node.js 18+.
+
+## Quick start
+
+```bash
+# fingerprint a contract
 unfold 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0
+
+# interactive mode — pick address and action from menus
+unfold
 ```
 
-For local development in this repo:
+After the fingerprint, `unfold` drops into an interactive menu so you can keep exploring without retyping the address.
 
-```bash
-npm install
-npm run build
-node dist/index.cjs 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 --tree
-```
+## What you get
 
-## What It Does
-
-- Resolves verified source and ABI from Etherscan API V2, with Sourcify fallback.
-- Detects proxy patterns: EIP-1967, UUPS, Beacon, Minimal Proxy, Diamond, and legacy OpenZeppelin transparent proxies.
-- Prints inheritance trees from Solidity source.
-- Detects common standards from ABI: ERC-20, ERC-721, ERC-1155, ERC-4626, ERC-2612, Ownable, Pausable, AccessControl, and more.
-- Scans a basic security surface: upgradeability, `selfdestruct`, `tx.origin`, `delegatecall`, and unguarded state-changing functions.
-- Reads direct storage slots, named variables, and simple mappings.
-- Watches decoded contract events.
-- Exports ABI, JSON, and Foundry starter tests.
-
-## Supported Chains
-
-`mainnet`, `arbitrum`, `base`, `optimism`, `polygon`, `zksync`, `sepolia`, `holesky`
-
-Use `--chain <name>` to select a chain:
-
-```bash
-unfold 0x... --chain arbitrum
-```
-
-Use `--rpc <url>` to override the RPC for a single command:
-
-```bash
-unfold 0x... --chain mainnet --rpc https://eth.llamarpc.com
-```
+- **Fingerprint** — name, standards (ERC-20, ERC-721, ERC-4626 …), compiler, license, balance, total supply
+- **Proxy analysis** — detects EIP-1967 Transparent, UUPS, Beacon, Diamond, Minimal Proxy; shows implementation address, admin, and upgrade history
+- **Inheritance tree** — full parent chain parsed from Solidity source
+- **Security surface** — upgradeability, `selfdestruct`, `tx.origin`, `delegatecall`, reentrancy guards, unprotected privileged functions
+- **Read state** — call any `view` function by name with arguments
+- **Watch events** — stream decoded events live to the terminal
+- **Inspect storage** — read any slot by index, variable name, or mapping key
+- **Export** — Foundry fork test stub, ABI JSON, full contract JSON
 
 ## Usage
 
@@ -51,61 +53,81 @@ unfold <address> [options]
 ```
 
 | Option | Description |
-| --- | --- |
-| `--chain <name>` | Target chain. Defaults to config, then `mainnet`. |
-| `--rpc <url>` | Custom RPC URL for this run. |
-| `--json` | Machine-readable output. Skips banner and menu. |
-| `--proxy` | Full proxy analysis and upgrade log lookup. |
-| `--tree` | Inheritance tree and standards summary. |
-| `--security` | Basic security surface scan. |
-| `--watch <event>` | Watch decoded events. Use `all` for every event. |
-| `--storage <query>` | Read slot, variable, or simple mapping key. |
-| `--read <call>` | Call a view or pure function by ABI. |
-| `--export <format>` | Export `foundry`, `abi`, or `json`. |
+|---|---|
+| `--chain <name>` | Target chain (default: `mainnet`) |
+| `--rpc <url>` | Override RPC for this run |
+| `--proxy` | Proxy analysis + upgrade history |
+| `--tree` | Inheritance tree + detected standards |
+| `--security` | Security surface scan |
+| `--read "<fn(args)>"` | Call a view function |
+| `--watch <event\|all>` | Stream live events |
+| `--storage <slot\|name\|mapping>` | Read a storage slot |
+| `--export <foundry\|abi\|json>` | Export artifacts |
+| `--json` | Machine-readable output, no banner or menu |
 
-Examples:
+### Examples
 
 ```bash
-unfold 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 --read "symbol()"
-unfold 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 --storage 0
+# proxy deep-dive on wstETH
+unfold 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0 --proxy
+
+# call totalSupply on USDC (Base)
+unfold 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 --chain base --read "totalSupply()"
+
+# read a mapping slot
 unfold 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 --storage "balanceOf[0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045]"
+
+# stream Transfer events live
 unfold 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 --watch Transfer
+
+# export a Foundry fork test
 unfold 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 --export foundry
 ```
 
+## Supported chains
+
+`mainnet` · `arbitrum` · `base` · `optimism` · `polygon` · `zksync` · `sepolia` · `holesky`
+
 ## Configuration
 
-Etherscan API V2 requires an API key for source lookups. Every user should use their own key; the package does not embed one.
+Source lookups use Etherscan API V2. Without an API key, `unfold` falls back to Sourcify automatically — no key required for most verified contracts.
 
-Set it for the current shell:
+To use your own Etherscan key:
 
 ```bash
+# one-off
 export ETHERSCAN_API_KEY=your_key_here
-```
 
-Or create `~/.unfold/config.json` interactively:
-
-```bash
+# or persist it
 unfold config init
 ```
 
-Config shape:
+`~/.unfold/config.json` shape:
 
 ```json
 {
   "etherscanApiKey": "YOUR_KEY",
   "defaultChain": "mainnet",
   "rpcOverrides": {
-    "mainnet": "https://eth.llamarpc.com",
-    "arbitrum": "https://arb1.arbitrum.io/rpc"
+    "mainnet": "https://eth.llamarpc.com"
   }
 }
 ```
 
-`ETHERSCAN_API_KEY` takes precedence over the config file.
+`ETHERSCAN_API_KEY` env var takes precedence over the config file.
 
-## Notes
+## Contributing
 
-- Storage layout inference is best-effort and currently supports simple source-level variables and first-level mappings.
-- `--read` only calls `view` or `pure` functions; it will not send transactions.
-- Source parsing requires verified, parseable Solidity source.
+PRs and issues are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+```bash
+git clone https://github.com/alva-p/unfold
+cd unfold
+npm install
+npm run build
+npm test
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE)

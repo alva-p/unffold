@@ -3,9 +3,12 @@ import { getAddress, isAddress } from 'viem'
 import type { ProxyInfo, AbiItem } from '../types.js'
 
 const SLOTS = {
-  EIP1967_IMPL: '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc' as `0x${string}`,
+  EIP1967_IMPL:  '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc' as `0x${string}`,
   EIP1967_ADMIN: '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103' as `0x${string}`,
-  EIP1822_UUID: '0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7' as `0x${string}`,
+  EIP1822_UUID:  '0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7' as `0x${string}`,
+  // keccak256("org.zeppelinos.proxy.implementation") — used by Zeppelin OS v1.x (pre-EIP-1967)
+  OZ_V1_IMPL:   '0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3' as `0x${string}`,
+  OZ_V1_ADMIN:  '0x10d6a54a4754c8869d6886b5f5d7fbfa5b4522237ea5c60d11bc4e7a1ff9390b' as `0x${string}`,
 }
 
 const UPGRADED_TOPIC = '0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b' as `0x${string}`
@@ -95,7 +98,28 @@ export async function detectProxy(
     // not EIP-1822
   }
 
-  // 3. Beacon Proxy
+  // 3. Zeppelin OS v1 slot (pre-EIP-1967, used by e.g. USDC FiatTokenProxy)
+  try {
+    const implSlot = await client.getStorageAt({ address: addr, slot: SLOTS.OZ_V1_IMPL })
+    if (implSlot) {
+      const implAddr = slotToAddress(implSlot)
+      if (implAddr) {
+        const adminSlot = await client.getStorageAt({ address: addr, slot: SLOTS.OZ_V1_ADMIN })
+        const adminAddr = adminSlot ? slotToAddress(adminSlot) : undefined
+        return {
+          pattern: 'Transparent (OpenZeppelin v1)',
+          implementationAddress: implAddr,
+          adminAddress: adminAddr ?? undefined,
+          proxySlot: SLOTS.OZ_V1_IMPL,
+          depth,
+        }
+      }
+    }
+  } catch {
+    // not OZ v1
+  }
+
+  // 5. Beacon Proxy
   if (hasFunction(abi, 'beacon')) {
     try {
       const beaconAddr = await client.readContract({
@@ -131,7 +155,7 @@ export async function detectProxy(
     // no bytecode
   }
 
-  // 5. Diamond (EIP-2535)
+  // 6. Diamond (EIP-2535)
   if (hasFunction(abi, 'facets')) {
     return {
       pattern: 'Diamond (EIP-2535)',
@@ -140,7 +164,7 @@ export async function detectProxy(
     }
   }
 
-  // 6. OpenZeppelin legacy: admin() + implementation()
+  // 7. OpenZeppelin legacy: admin() + implementation() as view functions
   if (hasFunction(abi, 'admin') && hasFunction(abi, 'implementation')) {
     try {
       const implAddr = await client.readContract({

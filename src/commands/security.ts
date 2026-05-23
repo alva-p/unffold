@@ -1,4 +1,3 @@
-import ora from 'ora'
 import { getAddress, isAddress } from 'viem'
 import { createClient } from '../core/rpc.js'
 import { resolveContract } from '../core/resolver.js'
@@ -55,7 +54,9 @@ export async function runSecurity(
   jsonOutput = false
 ): Promise<void> {
   const address = validateAddress(rawAddress)
-  const spinner = jsonOutput ? null : ora({ text: `  Scanning security surface for ${c.address(address)}...`, spinner: 'dots' }).start()
+  if (!jsonOutput) {
+    process.stdout.write(`\n  ${c.muted(`Scanning security surface for ${address.slice(0, 6)}...${address.slice(-4)}...`)}\n`)
+  }
 
   try {
     const client = createClient(chainName, config, rpcOverride)
@@ -88,7 +89,7 @@ export async function runSecurity(
       proxy,
     }
 
-    spinner?.stop()
+    if (!jsonOutput) process.stdout.write('\x1B[1A\x1B[2K')
     if (jsonOutput) {
       console.log(JSON.stringify(result, null, 2))
       return
@@ -105,8 +106,16 @@ export async function runSecurity(
 
     console.log()
     console.log(`  ${c.bold('ACCESS CONTROL')}`)
-    console.log(`  ${c.muted('state-changing fns')} ${stateChanging.length}`)
-    console.log(`  ${c.muted('privileged fns')}     ${Math.max(result.privilegedFunctions, 0)}`)
+    if (proxy?.adminAddress) {
+      console.log(`  ${c.muted('owner')}             ${c.address(proxy.adminAddress)}`)
+    }
+    const privilegedCount = Math.max(result.privilegedFunctions, 0)
+    const privilegedNames = stateChanging
+      .filter(fn => fn.name && looksPrivileged(fn.name))
+      .slice(0, 6)
+      .map(fn => fn.name)
+      .join(', ')
+    console.log(`  ${c.muted('privileged fns')}     ${privilegedCount}${privilegedNames ? `  ${c.dim('— ' + privilegedNames)}` : ''}`)
     console.log(`  ${c.muted('unprotected fns')}    ${unprotected.length}`)
     if (unprotected.length > 0) {
       console.log(`  ${c.warn(unprotected.slice(0, 12).map(fn => fn.name || '(fallback)').join('  '))}`)
@@ -118,7 +127,7 @@ export async function runSecurity(
     }
     console.log()
   } catch (err) {
-    spinner?.fail()
+    if (!jsonOutput) process.stdout.write('\x1B[1A\x1B[2K')
     console.error(`\n  ${c.danger('Error:')} ${(err as Error).message}\n`)
     process.exit(1)
   }

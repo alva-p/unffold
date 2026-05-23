@@ -178,11 +178,15 @@ export function buildInheritanceLines(contracts: ContractNode[], rootName?: stri
     seen.add(name)
     lines.push(`${prefix}${connector}${name}`)
     const parents = byName.get(name)?.parents ?? []
+    // childPrefix depends on whether THIS node has more siblings (connector '├──') or is last ('└──')
+    // root nodes (connector '') pass empty prefix so their children start flush
+    const childPrefix = connector === ''
+      ? ''
+      : prefix + (connector === '├── ' ? '│   ' : '    ')
     parents.forEach((parent, index) => {
       const isLast = index === parents.length - 1
       const branch = isLast ? '└── ' : '├── '
-      const nextPrefix = prefix + (connector ? (isLast ? '    ' : '│   ') : '')
-      walk(parent, nextPrefix, branch)
+      walk(parent, childPrefix, branch)
     })
   }
 
