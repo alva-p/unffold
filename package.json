@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run src/__tests__/standards.test.ts src/__tests__/storage-layout.test.ts src/__tests__/ast-analyzer.test.ts",
+    "test": "vitest run src/__tests__/standards.test.ts src/__tests__/storage-layout.test.ts src/__tests__/ast-analyzer.test.ts src/__tests__/read-parser.test.ts",
     "test:smoke": "vitest run src/__tests__/smoke.test.ts",
     "dev": "npx ts-node src/index.ts",
     "start": "node dist/index.cjs"
