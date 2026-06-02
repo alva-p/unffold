@@ -1,6 +1,6 @@
 {
   "name": "unfold-evm",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Unfold any EVM contract in seconds",
   "bin": {
     "unffold": "dist/index.cjs"
