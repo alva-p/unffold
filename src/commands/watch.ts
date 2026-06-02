@@ -1,9 +1,11 @@
 import ora from 'ora'
-import { formatUnits, getAddress, isAddress } from 'viem'
+import { decodeEventLog, formatUnits, getAddress, isAddress } from 'viem'
 import { createClient } from '../core/rpc.js'
 import { resolveContract } from '../core/resolver.js'
 import { c } from '../output/colors.js'
 import type { AbiItem, Config } from '../types.js'
+
+const POLL_MS = 4_000
 
 function validateAddress(raw: string): string {
   if (!isAddress(raw)) throw new Error(`Invalid EVM address: ${raw}`)
@@ -28,7 +30,7 @@ export async function runWatch(
   rpcOverride?: string
 ): Promise<void> {
   const address = validateAddress(rawAddress)
-  const spinner = ora({ text: `  Preparing event watcher...`, spinner: 'dots' }).start()
+  const spinner = ora({ text: '  Preparing event watcher...', spinner: 'dots' }).start()
 
   try {
     const client = createClient(chainName, config, rpcOverride)
@@ -41,45 +43,58 @@ export async function runWatch(
       throw new Error(`Event not found in ABI: ${eventName}. Available: ${names.join(', ')}`)
     }
 
+    let fromBlock = await client.getBlockNumber()
+
     spinner.stop()
     console.log()
-    console.log(`  ${c.bold(`Watching ${eventName} on ${address}`)}`)
+    console.log(`  ${c.bold(`Watching ${eventName} on ${address}`)}  ${c.muted('[' + chainName + ']')}`)
     console.log(c.dim('  ─────────────────────────────────────────────────'))
+    console.log(c.muted(`  polling every ${POLL_MS / 1000}s from block ${fromBlock} — Ctrl+C to stop\n`))
 
     let count = 0
-    const params: Record<string, unknown> = {
-      address: address as `0x${string}`,
-      abi: abi as never,
-      onLogs(logs: Array<Record<string, unknown>>) {
-        for (const log of logs) {
+    let running = true
+
+    process.once('SIGINT', () => {
+      running = false
+      console.log(`\n  ${c.muted(`Stopped. Events received: ${count}`)}\n`)
+      process.exit(0)
+    })
+
+    while (running) {
+      await new Promise(r => setTimeout(r, POLL_MS))
+      if (!running) break
+
+      const toBlock = await client.getBlockNumber()
+      if (toBlock <= fromBlock) continue
+
+      const logs = await client.getLogs({
+        address: address as `0x${string}`,
+        fromBlock: fromBlock + 1n,
+        toBlock,
+      })
+
+      fromBlock = toBlock
+
+      for (const log of logs) {
+        try {
+          const decoded = decodeEventLog({ abi: abi as never, data: log.data, topics: log.topics })
+          const name = String(decoded.eventName)
+          if (eventName !== 'all' && name !== eventName) continue
           count += 1
-          const name = String(log.eventName || eventName)
-          const block = typeof log.blockNumber === 'bigint' ? log.blockNumber.toString() : '?'
+          const block = log.blockNumber?.toString() ?? '?'
           console.log(`  [${block}] ${c.success(name)}  ${c.muted(`#${count}`)}`)
-          const args = log.args as Record<string, unknown> | undefined
+          const args = decoded.args as Record<string, unknown> | undefined
           if (args) {
             for (const [key, value] of Object.entries(args)) {
               console.log(`    ${c.muted(key.padEnd(10))} ${formatArg(value)}`)
             }
           }
           console.log()
+        } catch {
+          // log doesn't match ABI — skip
         }
-      },
-      onError(error: Error) {
-        console.error(`\n  ${c.danger('watch error:')} ${error.message}\n`)
-      },
+      }
     }
-    if (eventName !== 'all') params.eventName = eventName
-
-    const unwatch = (client as never as { watchContractEvent(args: Record<string, unknown>): () => void }).watchContractEvent(params)
-    await new Promise<void>(resolve => {
-      process.once('SIGINT', () => {
-        unwatch()
-        console.log(`\n  ${c.muted(`Stopped. Events received: ${count}`)}\n`)
-        resolve()
-        process.exit(0)
-      })
-    })
   } catch (err) {
     spinner.fail()
     console.error(`\n  ${c.danger('Error:')} ${(err as Error).message}\n`)
