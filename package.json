@@ -28,6 +28,9 @@
     "web3",
     "audit"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "license": "MIT",
   "author": "alva-p",
   "repository": {
