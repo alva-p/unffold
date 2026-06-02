@@ -9,6 +9,9 @@ import { runSecurity } from './commands/security.js'
 import { runStorage } from './commands/storage.js'
 import { runTree } from './commands/tree.js'
 import { runWatch } from './commands/watch.js'
+import { runDiff } from './commands/diff.js'
+import { runFacets } from './commands/facets.js'
+import { runTrace } from './commands/trace.js'
 import { loadConfig } from './core/config.js'
 import { runInteractive } from './interactive.js'
 import { c } from './output/colors.js'
@@ -31,6 +34,8 @@ program
   .option('--storage <slot>', 'Read a storage slot or variable name')
   .option('--read <call>', 'Call any view function, e.g. balanceOf(0x...)')
   .option('--export <format>', 'Export: foundry | abi | json')
+  .option('--output <path>', 'Destination directory for --export (default: current dir)')
+  .option('--facets', 'Enumerate Diamond (EIP-2535) facets via diamondLoupe')
   .action(async (address: string | undefined, options: {
     chain?: string
     rpc?: string
@@ -42,6 +47,8 @@ program
     storage?: string
     read?: string
     export?: string
+    output?: string
+    facets?: boolean
   }) => {
     const isJson = options.json === true
 
@@ -68,16 +75,19 @@ program
     if (options.watch)   { await runWatch(address, options.watch, chain, config, options.rpc); return }
     if (options.storage) { await runStorage(address, options.storage, chain, config, options.rpc, isJson); return }
     if (options.read)    { await runRead(address, options.read, chain, config, options.rpc, isJson); return }
-    if (options.export)  { await runExport(address, options.export, chain, config, isJson); return }
+    if (options.export)  { await runExport(address, options.export, chain, config, isJson, options.output); return }
+    if (options.facets)  { await runFacets(address, chain, config, options.rpc, isJson); return }
 
     await runInspect(address, chain, config, options.rpc, isJson)
   })
 
-program
+const configCmd = program
   .command('config')
   .description('Manage unfold configuration')
+
+configCmd
   .command('init')
-  .description('Initialize config file')
+  .description('Initialize config file via wizard')
   .action(async () => {
     const { default: inquirer } = await import('inquirer')
     const { getConfigPath, saveConfig } = await import('./core/config.js')
@@ -132,6 +142,81 @@ program
 
     saveConfig(cfg)
     console.log(c.success(`\n  ✓ Config saved to ${getConfigPath()}\n`))
+  })
+
+configCmd
+  .command('show')
+  .description('Print current config')
+  .action(() => {
+    const { getConfigPath, loadConfig } = require('./core/config.js') as typeof import('./core/config.js')
+    const cfg = loadConfig()
+    console.log()
+    console.log(`  ${c.bold('CONFIG')}  ${c.muted(getConfigPath())}`)
+    console.log(c.dim('  ──────────────────────────────────────────────────'))
+    const entries = Object.entries(cfg)
+    if (entries.length === 0) {
+      console.log(c.muted('  (empty — run `unfold config init` to set up)'))
+    } else {
+      for (const [key, val] of entries) {
+        const display = typeof val === 'object' ? JSON.stringify(val) : String(val)
+        console.log(`  ${c.muted(key.padEnd(20))} ${display}`)
+      }
+    }
+    console.log()
+  })
+
+configCmd
+  .command('set <key> <value>')
+  .description('Set a config value (e.g. defaultChain mainnet)')
+  .action((key: string, value: string) => {
+    const { loadConfig, saveConfig, getConfigPath } = require('./core/config.js') as typeof import('./core/config.js')
+    const VALID_KEYS = ['etherscanApiKey', 'defaultChain']
+    if (!VALID_KEYS.includes(key) && !key.startsWith('rpcOverrides.')) {
+      console.error(c.danger(`\n  Unknown key "${key}". Valid: ${VALID_KEYS.join(', ')}, rpcOverrides.<chain>\n`))
+      process.exit(1)
+    }
+    const cfg = loadConfig()
+    if (key.startsWith('rpcOverrides.')) {
+      const chain = key.slice('rpcOverrides.'.length)
+      cfg.rpcOverrides = { ...(cfg.rpcOverrides ?? {}), [chain]: value }
+    } else {
+      (cfg as Record<string, unknown>)[key] = value
+    }
+    saveConfig(cfg)
+    console.log(c.success(`\n  ✓ ${key} = ${value}  (${getConfigPath()})\n`))
+  })
+
+configCmd
+  .command('path')
+  .description('Print the config file path')
+  .action(() => {
+    const { getConfigPath } = require('./core/config.js') as typeof import('./core/config.js')
+    console.log(getConfigPath())
+  })
+
+program
+  .command('diff <address1> <address2>')
+  .description('Compare ABI and storage layout between two contracts')
+  .option('--chain <name>', 'Target chain (default: mainnet)')
+  .option('--json', 'Output as JSON')
+  .action(async (address1: string, address2: string, options: { chain?: string; json?: boolean }) => {
+    if (!options.json) printBanner()
+    const config = loadConfig()
+    const chain = options.chain ?? config.defaultChain ?? 'mainnet'
+    await runDiff(address1, address2, chain, config, options.json ?? false)
+  })
+
+program
+  .command('trace <txhash>')
+  .description('Decode calldata and events of a transaction')
+  .option('--chain <name>', 'Target chain (default: mainnet)')
+  .option('--rpc <url>', 'Custom RPC URL')
+  .option('--json', 'Output as JSON')
+  .action(async (txhash: string, options: { chain?: string; rpc?: string; json?: boolean }) => {
+    if (!options.json) printBanner()
+    const config = loadConfig()
+    const chain = options.chain ?? config.defaultChain ?? 'mainnet'
+    await runTrace(txhash, chain, config, options.rpc, options.json ?? false)
   })
 
 program.parse()
