@@ -83,10 +83,12 @@ export async function runExport(
   format: string,
   chainName: string,
   config: Config,
-  jsonOutput = false
+  jsonOutput = false,
+  outputDir?: string
 ): Promise<void> {
   const address = validateAddress(rawAddress)
   const spinner = jsonOutput ? null : ora({ text: `  Exporting ${format}...`, spinner: 'dots' }).start()
+  const destDir = outputDir ?? '.'
 
   try {
     const contract = await resolveContract(address, chainName, config)
@@ -95,14 +97,17 @@ export async function runExport(
 
     let path: string
     if (format === 'foundry') {
-      mkdirSync('test', { recursive: true })
-      path = join('test', `${name}.t.sol`)
+      const dir = join(destDir, 'test')
+      mkdirSync(dir, { recursive: true })
+      path = join(dir, `${name}.t.sol`)
       writeFileSync(path, foundrySource(name, address, chainName, abi), 'utf-8')
     } else if (format === 'abi') {
-      path = `${name}.abi.json`
+      mkdirSync(destDir, { recursive: true })
+      path = join(destDir, `${name}.abi.json`)
       writeFileSync(path, JSON.stringify(abi, null, 2), 'utf-8')
     } else if (format === 'json') {
-      path = `${name}.unfold.json`
+      mkdirSync(destDir, { recursive: true })
+      path = join(destDir, `${name}.unfold.json`)
       writeFileSync(path, JSON.stringify(contract, null, 2), 'utf-8')
     } else {
       throw new Error(`Unsupported export format: ${format}. Use foundry, abi, or json.`)

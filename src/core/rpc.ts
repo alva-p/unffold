@@ -92,7 +92,7 @@ export function createClient(chainName: string, config: Config, rpcOverride?: st
 
   return createPublicClient({
     chain: viemChain,
-    transport: http(rpcUrl),
+    transport: http(rpcUrl, { timeout: 15_000 }),
   })
 }
 
