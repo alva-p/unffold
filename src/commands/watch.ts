@@ -7,6 +7,7 @@ import { addressLink } from '../output/links.js'
 import type { AbiItem, Config } from '../types.js'
 
 const POLL_MS = 4_000
+const SPIN = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏']
 const AMOUNT_FIELDS = new Set(['value', 'amount', 'wad', 'balance', 'assets', 'shares', 'liquidity', 'qty'])
 
 function validateAddress(raw: string): string {
@@ -20,9 +21,7 @@ function eventNames(abi: AbiItem[]): string[] {
 
 function formatArg(value: unknown, decimals: number, fieldName = ''): string {
   if (typeof value === 'bigint') {
-    if (AMOUNT_FIELDS.has(fieldName.toLowerCase()) && decimals > 0) {
-      return formatUnits(value, decimals)
-    }
+    if (AMOUNT_FIELDS.has(fieldName.toLowerCase()) && decimals > 0) return formatUnits(value, decimals)
     return value.toString()
   }
   if (Array.isArray(value)) return `[${value.map(v => formatArg(v, decimals)).join(', ')}]`
@@ -45,6 +44,23 @@ async function fetchDecimals(address: string, client: ReturnType<typeof createCl
     return Number(dec)
   } catch {
     return 18
+  }
+}
+
+function makePollSpinner(nextBlock: bigint): { stop: () => void; update: (block: bigint) => void } {
+  if (!process.stdout.isTTY) return { stop: () => {}, update: () => {} }
+  let frame = 0
+  let block = nextBlock
+  const interval = setInterval(() => {
+    process.stdout.write(`\r  ${c.muted(SPIN[frame % SPIN.length])} ${c.muted(`waiting for block ${block}...`)}   `)
+    frame++
+  }, 80)
+  return {
+    stop: () => {
+      clearInterval(interval)
+      process.stdout.write('\r' + ' '.repeat(50) + '\r')
+    },
+    update: (b: bigint) => { block = b },
   }
 }
 
@@ -85,28 +101,26 @@ export async function runWatch(
 
     let count = 0
     let running = true
-    let pollSpinner = ora({ text: c.muted(`  waiting for block ${fromBlock + 1n}...`), spinner: 'arc' }).start()
+    let lastPoll = 0
 
-    process.once('SIGINT', () => {
-      running = false
-      pollSpinner.stop()
-      console.log(`\n  ${c.muted(`Stopped. ${count} events received.`)}\n`)
-      process.exit(0)
-    })
+    process.once('SIGINT', () => { running = false })
+
+    let poll = makePollSpinner(fromBlock + 1n)
 
     while (running) {
-      await new Promise(r => setTimeout(r, POLL_MS))
+      await new Promise(r => setTimeout(r, 200))
       if (!running) break
+      if (Date.now() - lastPoll < POLL_MS) continue
+      lastPoll = Date.now()
 
       const pollTime = Date.now()
       const toBlock = await client.getBlockNumber()
 
       if (toBlock <= fromBlock) {
-        pollSpinner.text = c.muted(`  waiting for block ${fromBlock + 1n}...`)
+        poll.update(fromBlock + 1n)
         continue
       }
 
-      // Cap lookback to 20 blocks — avoids dumping history if RPC returned a stale block number at startup
       const MAX_LOOKBACK = 20n
       const safeFrom = (toBlock - fromBlock) > MAX_LOOKBACK ? toBlock - MAX_LOOKBACK : fromBlock + 1n
 
@@ -119,7 +133,6 @@ export async function runWatch(
         })
         fromBlock = toBlock
       } catch {
-        // RPC not yet indexed this block — retry next poll
         continue
       }
 
@@ -134,26 +147,21 @@ export async function runWatch(
           const blockNum = log.blockNumber ?? toBlock
           if (!byBlock.has(blockNum)) byBlock.set(blockNum, [])
           const raw = decoded.args as unknown
-          const args = (raw && !Array.isArray(raw) && typeof raw === 'object')
-            ? raw as Record<string, unknown>
-            : {}
+          const args = (raw && !Array.isArray(raw) && typeof raw === 'object') ? raw as Record<string, unknown> : {}
           byBlock.get(blockNum)!.push({ name, args })
-        } catch {
-          // log doesn't match ABI — skip
-        }
+        } catch { /* skip */ }
       }
 
       if (byBlock.size === 0) {
-        pollSpinner.text = c.muted(`  waiting for block ${fromBlock + 1n}...`)
+        poll.update(fromBlock + 1n)
         continue
       }
 
-      pollSpinner.stop()
+      poll.stop()
 
       for (const [blockNum, events] of [...byBlock.entries()].sort((a, b) => Number(a[0] - b[0]))) {
         count += events.length
-        const elapsed = timeAgo(Date.now() - pollTime)
-        console.log(`  ${c.dim('───')} ${c.bold('block ' + blockNum.toString())} ${c.muted('· ' + elapsed)} ${c.dim('─'.repeat(28))}`)
+        console.log(`  ${c.dim('───')} ${c.bold('block ' + blockNum.toString())} ${c.muted('· ' + timeAgo(Date.now() - pollTime))} ${c.dim('─'.repeat(28))}`)
         for (const ev of events) {
           console.log(`\n  ${c.success(ev.name)}`)
           for (const [key, val] of Object.entries(ev.args)) {
@@ -167,8 +175,11 @@ export async function runWatch(
         console.log()
       }
 
-      pollSpinner = ora({ text: c.muted(`  waiting for block ${fromBlock + 1n}...`), spinner: 'arc' }).start()
+      poll = makePollSpinner(fromBlock + 1n)
     }
+
+    poll.stop()
+    console.log(`\n  ${c.muted(`Stopped. ${count} events received.`)}\n`)
   } catch (err) {
     spinner.fail()
     console.error(`\n  ${c.danger('Error:')} ${(err as Error).message}\n`)
