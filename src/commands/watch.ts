@@ -106,12 +106,18 @@ export async function runWatch(
         continue
       }
 
-      const logs = await client.getLogs({
-        address: address as `0x${string}`,
-        fromBlock: fromBlock + 1n,
-        toBlock,
-      })
-      fromBlock = toBlock
+      let logs: Awaited<ReturnType<typeof client.getLogs>> = []
+      try {
+        logs = await client.getLogs({
+          address: address as `0x${string}`,
+          fromBlock: fromBlock + 1n,
+          toBlock,
+        })
+        fromBlock = toBlock
+      } catch {
+        // RPC not yet indexed this block — retry next poll
+        continue
+      }
 
       type DecodedLog = { name: string; args: Record<string, unknown> }
       const byBlock = new Map<bigint, DecodedLog[]>()
