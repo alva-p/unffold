@@ -106,11 +106,15 @@ export async function runWatch(
         continue
       }
 
+      // Cap lookback to 20 blocks — avoids dumping history if RPC returned a stale block number at startup
+      const MAX_LOOKBACK = 20n
+      const safeFrom = (toBlock - fromBlock) > MAX_LOOKBACK ? toBlock - MAX_LOOKBACK : fromBlock + 1n
+
       let logs: Awaited<ReturnType<typeof client.getLogs>> = []
       try {
         logs = await client.getLogs({
           address: address as `0x${string}`,
-          fromBlock: fromBlock + 1n,
+          fromBlock: safeFrom,
           toBlock,
         })
         fromBlock = toBlock
