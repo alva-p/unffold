@@ -77,7 +77,7 @@ export async function runWatch(
 
     spinner.stop()
     const addrShort = `${address.slice(0, 6)}...${address.slice(-4)}`
-    const addrDisplay = addressLink(addrShort, chain.explorerUrl)
+    const addrDisplay = addressLink(addrShort, address, chain.explorerUrl)
     console.log()
     console.log(`  ${c.bold(`Watching ${eventName}`)}  ${c.address(addrDisplay)}  ${c.muted('[' + chainName + ']')}`)
     console.log(c.dim('  ─────────────────────────────────────────────────'))
@@ -149,7 +149,7 @@ export async function runWatch(
           for (const [key, val] of Object.entries(ev.args)) {
             const isAddr = typeof val === 'string' && /^0x[0-9a-fA-F]{40}$/.test(val)
             const display = isAddr
-              ? c.address(addressLink(`${(val as string).slice(0, 6)}...${(val as string).slice(-4)}`, chain.explorerUrl))
+              ? c.address(addressLink(`${(val as string).slice(0, 6)}...${(val as string).slice(-4)}`, val as string, chain.explorerUrl))
               : formatArg(val, decimals, key)
             console.log(`    ${c.muted(key.padEnd(10))} ${display}`)
           }

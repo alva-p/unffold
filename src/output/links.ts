@@ -5,11 +5,11 @@ export function hyperlink(text: string, url: string): string {
   return `\x1b]8;;${url}\x1b\\${text}\x1b]8;;\x1b\\`
 }
 
-export function addressLink(address: string, explorerBase: string): string {
-  return hyperlink(address, explorerBase + address)
+export function addressLink(display: string, fullAddress: string, explorerBase: string): string {
+  return hyperlink(display, explorerBase + fullAddress)
 }
 
-export function txLink(hash: string, explorerBase: string): string {
+export function txLink(display: string, fullHash: string, explorerBase: string): string {
   const txBase = explorerBase.replace('/address/', '/tx/')
-  return hyperlink(hash, txBase + hash)
+  return hyperlink(display, txBase + fullHash)
 }
