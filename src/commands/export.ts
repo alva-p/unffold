@@ -87,7 +87,7 @@ export async function runExport(
   outputDir?: string
 ): Promise<void> {
   const address = validateAddress(rawAddress)
-  const spinner = jsonOutput ? null : ora({ text: `  Exporting ${format}...`, spinner: 'dots' }).start()
+  const spinner = jsonOutput ? null : ora({ text: `  Exporting ${format}...`, spinner: 'arc' }).start()
   const destDir = outputDir ?? '.'
 
   try {

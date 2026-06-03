@@ -37,7 +37,7 @@ export async function runTrace(
     process.exit(1)
   }
 
-  const spinner = jsonOutput ? null : ora({ text: '  Fetching transaction...', spinner: 'dots' }).start()
+  const spinner = jsonOutput ? null : ora({ text: '  Fetching transaction...', spinner: 'arc' }).start()
 
   try {
     const client = createClient(chainName, config, rpcOverride)

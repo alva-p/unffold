@@ -68,7 +68,7 @@ export async function runDiff(
   const addrA = validateAddress(rawA)
   const addrB = validateAddress(rawB)
 
-  const spinner = jsonOutput ? null : ora({ text: '  Resolving contracts...', spinner: 'dots' }).start()
+  const spinner = jsonOutput ? null : ora({ text: '  Resolving contracts...', spinner: 'arc' }).start()
 
   try {
     const [contractA, contractB] = await Promise.all([

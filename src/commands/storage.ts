@@ -20,7 +20,7 @@ export async function runStorage(
   jsonOutput = false
 ): Promise<void> {
   const address = validateAddress(rawAddress)
-  const spinner = jsonOutput ? null : ora({ text: `  Reading storage ${c.address(query)}...`, spinner: 'dots' }).start()
+  const spinner = jsonOutput ? null : ora({ text: `  Reading storage ${c.address(query)}...`, spinner: 'arc' }).start()
 
   try {
     const [contract, client] = await Promise.all([

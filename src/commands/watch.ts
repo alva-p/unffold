@@ -1,25 +1,51 @@
 import ora from 'ora'
 import { decodeEventLog, formatUnits, getAddress, isAddress } from 'viem'
-import { createClient } from '../core/rpc.js'
+import { createClient, getChainConfig } from '../core/rpc.js'
 import { resolveContract } from '../core/resolver.js'
 import { c } from '../output/colors.js'
+import { addressLink } from '../output/links.js'
 import type { AbiItem, Config } from '../types.js'
 
 const POLL_MS = 4_000
+const AMOUNT_FIELDS = new Set(['value', 'amount', 'wad', 'balance', 'assets', 'shares', 'liquidity', 'qty'])
 
 function validateAddress(raw: string): string {
   if (!isAddress(raw)) throw new Error(`Invalid EVM address: ${raw}`)
   return getAddress(raw)
 }
 
-function formatArg(value: unknown): string {
-  if (typeof value === 'bigint') return `${formatUnits(value, 18)} (${value.toString()})`
-  if (Array.isArray(value)) return `[${value.map(formatArg).join(', ')}]`
+function eventNames(abi: AbiItem[]): string[] {
+  return abi.filter(item => item.type === 'event' && item.name).map(item => item.name!)
+}
+
+function formatArg(value: unknown, decimals: number, fieldName = ''): string {
+  if (typeof value === 'bigint') {
+    if (AMOUNT_FIELDS.has(fieldName.toLowerCase()) && decimals > 0) {
+      return formatUnits(value, decimals)
+    }
+    return value.toString()
+  }
+  if (Array.isArray(value)) return `[${value.map(v => formatArg(v, decimals)).join(', ')}]`
   return String(value)
 }
 
-function eventNames(abi: AbiItem[]): string[] {
-  return abi.filter(item => item.type === 'event' && item.name).map(item => item.name!)
+function timeAgo(ms: number): string {
+  const s = Math.floor(Math.abs(ms) / 1000)
+  if (s < 60) return `${s}s ago`
+  return `${Math.floor(s / 60)}m ${s % 60}s ago`
+}
+
+async function fetchDecimals(address: string, client: ReturnType<typeof createClient>): Promise<number> {
+  try {
+    const dec = await client.readContract({
+      address: address as `0x${string}`,
+      abi: [{ type: 'function', name: 'decimals', inputs: [], outputs: [{ name: '', type: 'uint8' }], stateMutability: 'view' }],
+      functionName: 'decimals',
+    })
+    return Number(dec)
+  } catch {
+    return 18
+  }
 }
 
 export async function runWatch(
@@ -30,11 +56,15 @@ export async function runWatch(
   rpcOverride?: string
 ): Promise<void> {
   const address = validateAddress(rawAddress)
-  const spinner = ora({ text: '  Preparing event watcher...', spinner: 'dots' }).start()
+  const chain = getChainConfig(chainName)
+  const spinner = ora({ text: '  Preparing event watcher...', spinner: 'arc' }).start()
 
   try {
     const client = createClient(chainName, config, rpcOverride)
-    const contract = await resolveContract(address, chainName, config)
+    const [contract, decimals] = await Promise.all([
+      resolveContract(address, chainName, config),
+      fetchDecimals(address, client),
+    ])
     const abi = contract.abi || []
     if (abi.length === 0) throw new Error('Verified ABI is required to watch decoded events')
 
@@ -46,17 +76,21 @@ export async function runWatch(
     let fromBlock = await client.getBlockNumber()
 
     spinner.stop()
+    const addrShort = `${address.slice(0, 6)}...${address.slice(-4)}`
+    const addrDisplay = addressLink(addrShort, chain.explorerUrl)
     console.log()
-    console.log(`  ${c.bold(`Watching ${eventName} on ${address}`)}  ${c.muted('[' + chainName + ']')}`)
+    console.log(`  ${c.bold(`Watching ${eventName}`)}  ${c.address(addrDisplay)}  ${c.muted('[' + chainName + ']')}`)
     console.log(c.dim('  ─────────────────────────────────────────────────'))
-    console.log(c.muted(`  polling every ${POLL_MS / 1000}s from block ${fromBlock} — Ctrl+C to stop\n`))
+    console.log(c.muted(`  from block ${fromBlock} · ${decimals} decimals · Ctrl+C to stop\n`))
 
     let count = 0
     let running = true
+    let pollSpinner = ora({ text: c.muted(`  waiting for block ${fromBlock + 1n}...`), spinner: 'arc' }).start()
 
     process.once('SIGINT', () => {
       running = false
-      console.log(`\n  ${c.muted(`Stopped. Events received: ${count}`)}\n`)
+      pollSpinner.stop()
+      console.log(`\n  ${c.muted(`Stopped. ${count} events received.`)}\n`)
       process.exit(0)
     })
 
@@ -64,36 +98,66 @@ export async function runWatch(
       await new Promise(r => setTimeout(r, POLL_MS))
       if (!running) break
 
+      const pollTime = Date.now()
       const toBlock = await client.getBlockNumber()
-      if (toBlock <= fromBlock) continue
+
+      if (toBlock <= fromBlock) {
+        pollSpinner.text = c.muted(`  waiting for block ${fromBlock + 1n}...`)
+        continue
+      }
 
       const logs = await client.getLogs({
         address: address as `0x${string}`,
         fromBlock: fromBlock + 1n,
         toBlock,
       })
-
       fromBlock = toBlock
+
+      type DecodedLog = { name: string; args: Record<string, unknown> }
+      const byBlock = new Map<bigint, DecodedLog[]>()
 
       for (const log of logs) {
         try {
           const decoded = decodeEventLog({ abi: abi as never, data: log.data, topics: log.topics })
           const name = String(decoded.eventName)
           if (eventName !== 'all' && name !== eventName) continue
-          count += 1
-          const block = log.blockNumber?.toString() ?? '?'
-          console.log(`  [${block}] ${c.success(name)}  ${c.muted(`#${count}`)}`)
-          const args = decoded.args as Record<string, unknown> | undefined
-          if (args) {
-            for (const [key, value] of Object.entries(args)) {
-              console.log(`    ${c.muted(key.padEnd(10))} ${formatArg(value)}`)
-            }
-          }
-          console.log()
+          const blockNum = log.blockNumber ?? toBlock
+          if (!byBlock.has(blockNum)) byBlock.set(blockNum, [])
+          const raw = decoded.args as unknown
+          const args = (raw && !Array.isArray(raw) && typeof raw === 'object')
+            ? raw as Record<string, unknown>
+            : {}
+          byBlock.get(blockNum)!.push({ name, args })
         } catch {
           // log doesn't match ABI — skip
         }
       }
+
+      if (byBlock.size === 0) {
+        pollSpinner.text = c.muted(`  waiting for block ${fromBlock + 1n}...`)
+        continue
+      }
+
+      pollSpinner.stop()
+
+      for (const [blockNum, events] of [...byBlock.entries()].sort((a, b) => Number(a[0] - b[0]))) {
+        count += events.length
+        const elapsed = timeAgo(Date.now() - pollTime)
+        console.log(`  ${c.dim('───')} ${c.bold('block ' + blockNum.toString())} ${c.muted('· ' + elapsed)} ${c.dim('─'.repeat(28))}`)
+        for (const ev of events) {
+          console.log(`\n  ${c.success(ev.name)}`)
+          for (const [key, val] of Object.entries(ev.args)) {
+            const isAddr = typeof val === 'string' && /^0x[0-9a-fA-F]{40}$/.test(val)
+            const display = isAddr
+              ? c.address(addressLink(`${(val as string).slice(0, 6)}...${(val as string).slice(-4)}`, chain.explorerUrl))
+              : formatArg(val, decimals, key)
+            console.log(`    ${c.muted(key.padEnd(10))} ${display}`)
+          }
+        }
+        console.log()
+      }
+
+      pollSpinner = ora({ text: c.muted(`  waiting for block ${fromBlock + 1n}...`), spinner: 'arc' }).start()
     }
   } catch (err) {
     spinner.fail()

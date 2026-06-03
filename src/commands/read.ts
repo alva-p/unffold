@@ -68,7 +68,7 @@ export async function runRead(
 ): Promise<void> {
   const address = validateAddress(rawAddress)
   const parsed = parseCall(call)
-  const spinner = jsonOutput ? null : ora({ text: `  Calling ${c.address(parsed.name)}...`, spinner: 'dots' }).start()
+  const spinner = jsonOutput ? null : ora({ text: `  Calling ${c.address(parsed.name)}...`, spinner: 'arc' }).start()
 
   try {
     const client = createClient(chainName, config, rpcOverride)

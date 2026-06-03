@@ -61,7 +61,7 @@ export async function runFacets(
   jsonOutput = false
 ): Promise<void> {
   const address = validateAddress(rawAddress)
-  const spinner = jsonOutput ? null : ora({ text: '  Loading diamond facets...', spinner: 'dots' }).start()
+  const spinner = jsonOutput ? null : ora({ text: '  Loading diamond facets...', spinner: 'arc' }).start()
 
   try {
     const client = createClient(chainName, config, rpcOverride)
@@ -72,7 +72,15 @@ export async function runFacets(
       functionName: 'facets',
     }) as FacetRaw[]
 
-    if (spinner) spinner.text = `  Resolving ${rawFacets.length} facets...`
+    const total = rawFacets.length
+    let done = 0
+    const updateBar = () => {
+      if (!spinner) return
+      const filled = Math.round((done / total) * 12)
+      const bar = '█'.repeat(filled) + '░'.repeat(12 - filled)
+      spinner.text = `  [${bar}] ${done}/${total} facets resolved`
+    }
+    updateBar()
 
     const resolved = await Promise.all(
       rawFacets.map(async (facet) => {
@@ -82,6 +90,8 @@ export async function runFacets(
           selector: sel,
           name: selectorMap.get(sel) ?? null,
         }))
+        done++
+        updateBar()
         return {
           facetAddress: facet.facetAddress,
           name: contract?.name ?? 'Unknown',
@@ -114,9 +124,9 @@ export async function runFacets(
       }
     }
 
-    const total = resolved.reduce((n, f) => n + f.functions.length, 0)
+    const totalSelectors = resolved.reduce((n, f) => n + f.functions.length, 0)
     console.log()
-    console.log(`  ${c.muted(`${resolved.length} facets · ${total} selectors`)}`)
+    console.log(`  ${c.muted(`${resolved.length} facets · ${totalSelectors} selectors`)}`)
     console.log()
   } catch (err) {
     spinner?.fail()
