@@ -13,8 +13,9 @@
   ],
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run src/__tests__/standards.test.ts src/__tests__/storage-layout.test.ts src/__tests__/ast-analyzer.test.ts src/__tests__/read-parser.test.ts",
+    "build:extension": "TARGET=extension tsup --config tsup.config.ts",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.extension.json",
+    "test": "vitest run src/__tests__/standards.test.ts src/__tests__/storage-layout.test.ts src/__tests__/ast-analyzer.test.ts src/__tests__/read-parser.test.ts src/__tests__/risk-summary.test.ts src/__tests__/profile-report.test.ts src/__tests__/analyzer.test.ts src/__tests__/game-profile.test.ts",
     "test:smoke": "vitest run src/__tests__/smoke.test.ts",
     "dev": "npx ts-node src/index.ts",
     "start": "node dist/index.cjs"

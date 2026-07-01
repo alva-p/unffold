@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "Unffold Web3 Inspector",
+  "version": "0.1.0",
+  "description": "Inspect EVM contracts, tokens, NFTs, proxies, vaults, and transactions from Chrome.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Unffold",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://api.etherscan.io/*",
+    "https://sourcify.dev/*",
+    "https://ipfs.io/*",
+    "https://arweave.net/*",
+    "https://ethereum-rpc.publicnode.com/*",
+    "https://arb1.arbitrum.io/*",
+    "https://mainnet.base.org/*",
+    "https://56.rpc.thirdweb.com/*",
+    "https://api.roninchain.com/*",
+    "https://api.mainnet.abs.xyz/*",
+    "https://mainnet.optimism.io/*",
+    "https://polygon-bor-rpc.publicnode.com/*",
+    "https://mainnet.era.zksync.io/*",
+    "https://ethereum-sepolia-rpc.publicnode.com/*",
+    "https://ethereum-holesky-rpc.publicnode.com/*"
+  ]
+}

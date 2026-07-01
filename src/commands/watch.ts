@@ -34,6 +34,10 @@ function timeAgo(ms: number): string {
   return `${Math.floor(s / 60)}m ${s % 60}s ago`
 }
 
+function blockTimeAgo(timestamp: bigint): string {
+  return timeAgo(Date.now() - Number(timestamp) * 1000)
+}
+
 async function fetchDecimals(address: string, client: ReturnType<typeof createClient>): Promise<number> {
   try {
     const dec = await client.readContract({
@@ -62,6 +66,21 @@ function makePollSpinner(nextBlock: bigint): { stop: () => void; update: (block:
     },
     update: (b: bigint) => { block = b },
   }
+}
+
+function formatEventValue(key: string, value: unknown, decimals: number, explorerBase: string): string {
+  const isAddr = typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value)
+  if (isAddr) return c.address(addressLink(`${value.slice(0, 6)}...${value.slice(-4)}`, value, explorerBase))
+  return formatArg(value, decimals, key)
+}
+
+function formatEventSummary(args: Record<string, unknown>, decimals: number, explorerBase: string): string {
+  const entries = Object.entries(args)
+  if (entries.length === 0) return c.muted('(no args)')
+  return entries
+    .slice(0, 6)
+    .map(([key, value]) => `${c.muted(key + '=')}${formatEventValue(key, value, decimals, explorerBase)}`)
+    .join('  ')
 }
 
 export async function runWatch(
@@ -113,7 +132,6 @@ export async function runWatch(
       if (Date.now() - lastPoll < POLL_MS) continue
       lastPoll = Date.now()
 
-      const pollTime = Date.now()
       const toBlock = await client.getBlockNumber()
 
       if (toBlock <= fromBlock) {
@@ -161,16 +179,11 @@ export async function runWatch(
 
       for (const [blockNum, events] of [...byBlock.entries()].sort((a, b) => Number(a[0] - b[0]))) {
         count += events.length
-        console.log(`  ${c.dim('───')} ${c.bold('block ' + blockNum.toString())} ${c.muted('· ' + timeAgo(Date.now() - pollTime))} ${c.dim('─'.repeat(28))}`)
+        const block = await client.getBlock({ blockNumber: blockNum }).catch(() => null)
+        const age = block?.timestamp ? blockTimeAgo(block.timestamp) : 'just now'
+        console.log(`  ${c.dim('───')} ${c.bold('block ' + blockNum.toString())} ${c.muted('· ' + age)} ${c.dim('─'.repeat(28))}`)
         for (const ev of events) {
-          console.log(`\n  ${c.success(ev.name)}`)
-          for (const [key, val] of Object.entries(ev.args)) {
-            const isAddr = typeof val === 'string' && /^0x[0-9a-fA-F]{40}$/.test(val)
-            const display = isAddr
-              ? c.address(addressLink(`${(val as string).slice(0, 6)}...${(val as string).slice(-4)}`, val as string, chain.explorerUrl))
-              : formatArg(val, decimals, key)
-            console.log(`    ${c.muted(key.padEnd(10))} ${display}`)
-          }
+          console.log(`  ${c.success(ev.name.padEnd(14))} ${formatEventSummary(ev.args, decimals, chain.explorerUrl)}`)
         }
         console.log()
       }

@@ -1,10 +1,13 @@
+import ora from 'ora'
+import Table from 'cli-table3'
 import { getAddress, isAddress } from 'viem'
-import { createClient } from '../core/rpc.js'
+import { createClient, getChainConfig } from '../core/rpc.js'
 import { resolveContract } from '../core/resolver.js'
 import { resolveProxyChain } from '../core/proxy-detector.js'
 import { detectStandards } from '../core/standards.js'
 import { tryAnalyzeSource } from '../core/ast-analyzer.js'
 import { c } from '../output/colors.js'
+import { addressLink } from '../output/links.js'
 import type { AbiItem, Config } from '../types.js'
 
 const GUARD_MODIFIERS = [
@@ -42,8 +45,32 @@ function validateAddress(raw: string): string {
   return getAddress(raw)
 }
 
+function shortAddr(addr: string): string {
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+}
+
 function isStateChanging(item: AbiItem): boolean {
   return item.type === 'function' && item.stateMutability !== 'view' && item.stateMutability !== 'pure'
+}
+
+function makeTable(): Table.Table {
+  return new Table({
+    chars: {
+      top: '', 'top-mid': '', 'top-left': '', 'top-right': '',
+      bottom: '', 'bottom-mid': '', 'bottom-left': '', 'bottom-right': '',
+      left: '', 'left-mid': '', mid: '', 'mid-mid': '',
+      right: '', 'right-mid': '', middle: '  ',
+    },
+    style: { 'padding-left': 2, 'padding-right': 0, border: [], head: [] },
+    wordWrap: true,
+  })
+}
+
+function severity(level: 'ok' | 'info' | 'medium' | 'high'): string {
+  if (level === 'ok') return c.success('ok')
+  if (level === 'info') return c.muted('info')
+  if (level === 'medium') return c.warn('medium')
+  return c.danger('high')
 }
 
 export async function runSecurity(
@@ -54,9 +81,10 @@ export async function runSecurity(
   jsonOutput = false
 ): Promise<void> {
   const address = validateAddress(rawAddress)
-  if (!jsonOutput) process.stdout.write(`  ${c.muted(`Scanning security surface for ${address.slice(0, 6)}...${address.slice(-4)}...`)}\n`)
+  const spinner = jsonOutput ? null : ora({ text: `  Scanning security surface for ${shortAddr(address)}...`, spinner: 'arc' }).start()
 
   try {
+    const chain = getChainConfig(chainName)
     const client = createClient(chainName, config, rpcOverride)
     const contract = await resolveContract(address, chainName, config)
     const proxy = await resolveProxyChain(address, contract.abi, client)
@@ -65,6 +93,7 @@ export async function runSecurity(
     const source = contract.sourceCode || ''
 
     const stateChanging = (contract.abi || []).filter(isStateChanging)
+    const privilegedLooking = stateChanging.filter(fn => fn.name && looksPrivileged(fn.name))
     const modifierByFunction = new Map((analysis?.functions || []).map(fn => [fn.name, fn.modifiers]))
     const unprotected = analysis ? stateChanging.filter(fn => {
       const name = fn.name || ''
@@ -82,7 +111,7 @@ export async function runSecurity(
       txOrigin: source.includes('tx.origin'),
       delegatecall: source.includes('delegatecall'),
       reentrancyGuard: standards.reentrancyGuard,
-      privilegedFunctions: stateChanging.length - unprotected.length,
+      privilegedFunctions: privilegedLooking.length,
       unprotectedFunctions: unprotected.map(fn => fn.name || '(fallback)'),
       proxy,
     }
@@ -92,29 +121,59 @@ export async function runSecurity(
       return
     }
 
+    spinner?.stop()
+
     console.log()
-    console.log(`  ${c.bold('SECURITY SURFACE')}`)
+    console.log(`  ${c.bold('SECURITY SURFACE')}  ${c.address(addressLink(shortAddr(address), address, chain.explorerUrl))}  ${c.muted('[' + chainName + ']')}`)
     console.log(c.dim('  ──────────────────────────────────────────────────'))
-    console.log(`  ${proxy ? c.warn('⚠ Upgradeable') : c.success('✓ Not upgradeable')}       ${proxy?.pattern || ''}`)
-    console.log(`  ${result.selfdestruct ? c.danger('✗ selfdestruct') : c.success('✓ No selfdestruct')}`)
-    console.log(`  ${result.txOrigin ? c.warn('⚠ tx.origin') : c.success('✓ No tx.origin')}`)
-    console.log(`  ${result.delegatecall ? c.warn('⚠ delegatecall') : c.success('✓ No delegatecall marker')}`)
-    console.log(`  ${result.reentrancyGuard ? c.success('✓ Reentrancy guards present') : c.muted('○ No nonReentrant marker')}`)
+
+    const surface = makeTable()
+    surface.push([
+      proxy ? severity(proxy.adminAddress ? 'high' : 'medium') : severity('ok'),
+      'upgradeability',
+      proxy ? `${proxy.pattern}${proxy.adminAddress ? ' with admin' : ''}` : 'not detected',
+    ])
+    surface.push([
+      result.selfdestruct ? severity('high') : severity('ok'),
+      'selfdestruct',
+      result.selfdestruct ? 'source contains selfdestruct' : 'not detected',
+    ])
+    surface.push([
+      result.txOrigin ? severity('medium') : severity('ok'),
+      'tx.origin',
+      result.txOrigin ? 'source checks transaction origin' : 'not detected',
+    ])
+    surface.push([
+      result.delegatecall ? severity('medium') : severity('ok'),
+      'delegatecall',
+      result.delegatecall ? 'source can delegate execution' : 'not detected',
+    ])
+    surface.push([
+      result.reentrancyGuard ? severity('ok') : severity('info'),
+      'reentrancy guard',
+      result.reentrancyGuard ? 'nonReentrant marker found' : 'not detected from ABI/source scan',
+    ])
+    console.log(surface.toString())
 
     console.log()
     console.log(`  ${c.bold('ACCESS CONTROL')}`)
+    const access = makeTable()
     if (proxy?.adminAddress) {
-      console.log(`  ${c.muted('owner')}             ${c.address(proxy.adminAddress)}`)
+      access.push([c.muted('proxy admin'), c.address(addressLink(shortAddr(proxy.adminAddress), proxy.adminAddress, chain.explorerUrl))])
     }
     const privilegedCount = Math.max(result.privilegedFunctions, 0)
-    const privilegedNames = stateChanging
-      .filter(fn => fn.name && looksPrivileged(fn.name))
+    const privilegedNames = privilegedLooking
       .slice(0, 6)
       .map(fn => fn.name)
       .join(', ')
-    console.log(`  ${c.muted('privileged fns')}     ${privilegedCount}${privilegedNames ? `  ${c.dim('— ' + privilegedNames)}` : ''}`)
-    console.log(`  ${c.muted('unprotected fns')}    ${unprotected.length}`)
+    access.push([c.muted('state-changing fns'), stateChanging.length])
+    access.push([c.muted('privileged-looking fns'), `${privilegedCount}${privilegedNames ? `  ${c.dim('- ' + privilegedNames)}` : ''}`])
+    access.push([c.muted('unprotected privileged fns'), unprotected.length > 0 ? c.warn(String(unprotected.length)) : c.success('0')])
+    console.log(access.toString())
+
     if (unprotected.length > 0) {
+      console.log()
+      console.log(`  ${c.bold('UNPROTECTED PRIVILEGED FUNCTIONS')}`)
       console.log(`  ${c.warn(unprotected.slice(0, 12).map(fn => fn.name || '(fallback)').join('  '))}`)
     }
 
@@ -124,6 +183,7 @@ export async function runSecurity(
     }
     console.log()
   } catch (err) {
+    spinner?.fail()
     throw err
   }
 }

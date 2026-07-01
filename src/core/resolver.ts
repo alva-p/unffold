@@ -29,7 +29,9 @@ async function fetchFromEtherscan(
   if (!apiKey) return null
 
   const chain = getChainConfig(chainName)
-  const apiBase = chain.explorerApiUrl.includes('etherscan.io') || chain.explorerApiUrl.includes('arbiscan.io') || chain.explorerApiUrl.includes('basescan.org') || chain.explorerApiUrl.includes('polygonscan.com')
+  if (!chain.explorerApiUrl) return null
+
+  const apiBase = chain.explorerApiUrl.includes('etherscan.io') || chain.explorerApiUrl.includes('arbiscan.io') || chain.explorerApiUrl.includes('basescan.org') || chain.explorerApiUrl.includes('bscscan.com') || chain.explorerApiUrl.includes('polygonscan.com') || chain.explorerApiUrl.includes('abscan.org')
     ? 'https://api.etherscan.io/v2/api'
     : chain.explorerApiUrl
   const url = `${apiBase}?chainid=${chain.chainId}&module=contract&action=getsourcecode&address=${address}&apikey=${apiKey}`

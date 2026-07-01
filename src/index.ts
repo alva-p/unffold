@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { exec } from 'child_process'
 import { Command } from 'commander'
 import { printBanner } from './output/banner.js'
 import { runInspect } from './commands/inspect.js'
@@ -12,12 +13,36 @@ import { runWatch } from './commands/watch.js'
 import { runDiff } from './commands/diff.js'
 import { runFacets } from './commands/facets.js'
 import { runTrace } from './commands/trace.js'
+import { runToken } from './commands/token.js'
+import { runVault } from './commands/vault.js'
+import { runNft } from './commands/nft.js'
+import { runGame } from './commands/game.js'
+import { runAnalyze } from './commands/analyze.js'
 import { loadConfig } from './core/config.js'
 import { runInteractive } from './interactive.js'
 import { c } from './output/colors.js'
+import { hyperlink } from './output/links.js'
 import { CHAINS } from './core/rpc.js'
 
 const program = new Command()
+const ETHERSCAN_API_DASHBOARD_URL = 'https://etherscan.io/apidashboard'
+
+function optionChain(options: { chain?: string }, config: ReturnType<typeof loadConfig>): string {
+  return options.chain ?? program.opts<{ chain?: string }>().chain ?? config.defaultChain ?? 'mainnet'
+}
+
+function optionRpc(options: { rpc?: string }): string | undefined {
+  return options.rpc ?? program.opts<{ rpc?: string }>().rpc
+}
+
+function openExternalUrl(url: string): void {
+  const cmd = process.platform === 'darwin'
+    ? `open "${url}"`
+    : process.platform === 'win32'
+      ? `start "" "${url}"`
+      : `xdg-open "${url}"`
+  exec(cmd)
+}
 
 program
   .name('unffold')
@@ -27,6 +52,9 @@ program
   .option('--chain <name>', 'Target chain')
   .option('--rpc <url>', 'Custom RPC URL')
   .option('--json', 'Output as JSON (no banner or interactive menu)')
+  .option('--no-menu', 'Do not open the interactive menu after inspect')
+  .option('--quiet', 'Hide banner and inspect progress lines')
+  .option('--simple', 'Print a short non-technical summary')
   .option('--proxy', 'Full proxy analysis')
   .option('--tree', 'Inheritance tree + standards')
   .option('--security', 'Security surface scan')
@@ -40,6 +68,9 @@ program
     chain?: string
     rpc?: string
     json?: boolean
+    noMenu?: boolean
+    quiet?: boolean
+    simple?: boolean
     proxy?: boolean
     tree?: boolean
     security?: boolean
@@ -51,8 +82,9 @@ program
     facets?: boolean
   }) => {
     const isJson = options.json === true
+    const isQuiet = options.quiet === true
 
-    if (!isJson) printBanner()
+    if (!isJson && !isQuiet) printBanner()
 
     const config = loadConfig()
     const chain = options.chain ?? config.defaultChain ?? 'mainnet'
@@ -78,7 +110,8 @@ program
     if (options.export)  { await runExport(address, options.export, chain, config, isJson, options.output); return }
     if (options.facets)  { await runFacets(address, chain, config, options.rpc, isJson); return }
 
-    await runInspect(address, chain, config, options.rpc, isJson)
+    const startLoop = !isJson && !isQuiet && options.noMenu !== true && options.simple !== true
+    await runInspect(address, chain, config, options.rpc, isJson, startLoop, isQuiet, options.simple === true)
   })
 
 const configCmd = program
@@ -94,6 +127,23 @@ configCmd
 
     printBanner()
     console.log(c.muted('  Initializing ~/.unfold/config.json\n'))
+    console.log(`  ${c.bold('Etherscan API key')}`)
+    console.log(`  ${c.muted('unffold can fall back to Sourcify, but an Etherscan API key makes verified-source lookups more reliable across supported EVM chains.')}`)
+    console.log(`  ${c.muted('Create or copy your key here:')} ${c.address(hyperlink(ETHERSCAN_API_DASHBOARD_URL, ETHERSCAN_API_DASHBOARD_URL))}\n`)
+
+    const setupAnswers = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'openEtherscanDashboard',
+        message: 'Open the Etherscan API dashboard in your browser?',
+        default: false,
+      },
+    ])
+
+    if (setupAnswers.openEtherscanDashboard === true) {
+      openExternalUrl(ETHERSCAN_API_DASHBOARD_URL)
+      console.log(c.muted(`  Opened ${ETHERSCAN_API_DASHBOARD_URL}\n`))
+    }
 
     const answers = await inquirer.prompt([
       {
@@ -155,7 +205,7 @@ configCmd
     console.log(c.dim('  ──────────────────────────────────────────────────'))
     const entries = Object.entries(cfg)
     if (entries.length === 0) {
-      console.log(c.muted('  (empty — run `unfold config init` to set up)'))
+      console.log(c.muted('  (empty — run `unffold config init` to set up)'))
     } else {
       for (const [key, val] of entries) {
         const display = typeof val === 'object' ? JSON.stringify(val) : String(val)
@@ -200,10 +250,11 @@ program
   .option('--chain <name>', 'Target chain (default: mainnet)')
   .option('--json', 'Output as JSON')
   .action(async (address1: string, address2: string, options: { chain?: string; json?: boolean }) => {
-    if (!options.json) printBanner()
+    const jsonOutput = options.json === true || program.opts<{ json?: boolean }>().json === true
+    if (!jsonOutput) printBanner()
     const config = loadConfig()
-    const chain = options.chain ?? config.defaultChain ?? 'mainnet'
-    await runDiff(address1, address2, chain, config, options.json ?? false)
+    const chain = optionChain(options, config)
+    await runDiff(address1, address2, chain, config, jsonOutput)
   })
 
 program
@@ -213,10 +264,95 @@ program
   .option('--rpc <url>', 'Custom RPC URL')
   .option('--json', 'Output as JSON')
   .action(async (txhash: string, options: { chain?: string; rpc?: string; json?: boolean }) => {
-    if (!options.json) printBanner()
+    const jsonOutput = options.json === true || program.opts<{ json?: boolean }>().json === true
+    if (!jsonOutput) printBanner()
     const config = loadConfig()
-    const chain = options.chain ?? config.defaultChain ?? 'mainnet'
-    await runTrace(txhash, chain, config, options.rpc, options.json ?? false)
+    const chain = optionChain(options, config)
+    await runTrace(txhash, chain, config, optionRpc(options), jsonOutput)
+  })
+
+program
+  .command('analyze <address>')
+  .description('Auto-detect the best profile and return a UI-ready report')
+  .option('--chain <name>', 'Target chain (default: mainnet)')
+  .option('--rpc <url>', 'Custom RPC URL')
+  .option('--json', 'Output as JSON')
+  .action(async (address: string, options: { chain?: string; rpc?: string; json?: boolean }) => {
+    const jsonOutput = options.json === true || program.opts<{ json?: boolean }>().json === true
+    if (!jsonOutput) printBanner()
+    const config = loadConfig()
+    const chain = optionChain(options, config)
+    await runAnalyze(address, chain, config, optionRpc(options), jsonOutput)
+  })
+
+program
+  .command('token <address>')
+  .description('Token-focused risk summary for ERC-20-style contracts')
+  .option('--chain <name>', 'Target chain (default: mainnet)')
+  .option('--rpc <url>', 'Custom RPC URL')
+  .option('--json', 'Output as JSON')
+  .action(async (address: string, options: { chain?: string; rpc?: string; json?: boolean }) => {
+    const jsonOutput = options.json === true || program.opts<{ json?: boolean }>().json === true
+    if (!jsonOutput) printBanner()
+    const config = loadConfig()
+    const chain = optionChain(options, config)
+    await runToken(address, chain, config, optionRpc(options), jsonOutput)
+  })
+
+program
+  .command('proxy <address>')
+  .description('Proxy-focused upgradeability and admin risk summary')
+  .option('--chain <name>', 'Target chain (default: mainnet)')
+  .option('--rpc <url>', 'Custom RPC URL')
+  .option('--json', 'Output as JSON')
+  .action(async (address: string, options: { chain?: string; rpc?: string; json?: boolean }) => {
+    const jsonOutput = options.json === true || program.opts<{ json?: boolean }>().json === true
+    if (!jsonOutput) printBanner()
+    const config = loadConfig()
+    const chain = optionChain(options, config)
+    await runProxy(address, chain, config, optionRpc(options), jsonOutput)
+  })
+
+program
+  .command('vault <address>')
+  .description('ERC-4626-focused vault metadata and risk summary')
+  .option('--chain <name>', 'Target chain (default: mainnet)')
+  .option('--rpc <url>', 'Custom RPC URL')
+  .option('--json', 'Output as JSON')
+  .action(async (address: string, options: { chain?: string; rpc?: string; json?: boolean }) => {
+    const jsonOutput = options.json === true || program.opts<{ json?: boolean }>().json === true
+    if (!jsonOutput) printBanner()
+    const config = loadConfig()
+    const chain = optionChain(options, config)
+    await runVault(address, chain, config, optionRpc(options), jsonOutput)
+  })
+
+program
+  .command('nft <address>')
+  .description('NFT collection metadata and risk summary')
+  .option('--chain <name>', 'Target chain (default: mainnet)')
+  .option('--rpc <url>', 'Custom RPC URL')
+  .option('--json', 'Output as JSON')
+  .action(async (address: string, options: { chain?: string; rpc?: string; json?: boolean }) => {
+    const jsonOutput = options.json === true || program.opts<{ json?: boolean }>().json === true
+    if (!jsonOutput) printBanner()
+    const config = loadConfig()
+    const chain = optionChain(options, config)
+    await runNft(address, chain, config, optionRpc(options), jsonOutput)
+  })
+
+program
+  .command('game <address>')
+  .description('Game / on-chain app risk summary')
+  .option('--chain <name>', 'Target chain (default: mainnet)')
+  .option('--rpc <url>', 'Custom RPC URL')
+  .option('--json', 'Output as JSON')
+  .action(async (address: string, options: { chain?: string; rpc?: string; json?: boolean }) => {
+    const jsonOutput = options.json === true || program.opts<{ json?: boolean }>().json === true
+    if (!jsonOutput) printBanner()
+    const config = loadConfig()
+    const chain = optionChain(options, config)
+    await runGame(address, chain, config, optionRpc(options), jsonOutput)
   })
 
 program.parse()

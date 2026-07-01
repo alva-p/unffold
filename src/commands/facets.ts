@@ -1,8 +1,9 @@
 import ora from 'ora'
 import { getAddress, isAddress, toFunctionSelector } from 'viem'
-import { createClient } from '../core/rpc.js'
+import { createClient, getChainConfig } from '../core/rpc.js'
 import { resolveContract } from '../core/resolver.js'
 import { c } from '../output/colors.js'
+import { addressLink } from '../output/links.js'
 import type { AbiItem, AbiInput, Config } from '../types.js'
 
 function validateAddress(raw: string): string {
@@ -109,15 +110,17 @@ export async function runFacets(
     }
 
     const short = `${address.slice(0, 6)}...${address.slice(-4)}`
+    const chain = getChainConfig(chainName)
+    const linkedDiamond = c.address(addressLink(short, address, chain.explorerUrl))
     console.log()
-    console.log(`  ${c.bold('DIAMOND FACETS')}  ${c.address(short)}  ${c.muted('[' + chainName + ']')}`)
+    console.log(`  ${c.bold('DIAMOND FACETS')}  ${linkedDiamond}  ${c.muted('[' + chainName + ']')}`)
     console.log(c.dim('  ──────────────────────────────────────────────────'))
 
     for (const facet of resolved) {
       const addr = `${facet.facetAddress.slice(0, 6)}...${facet.facetAddress.slice(-4)}`
       const verified = facet.verified ? '' : c.muted(' (unverified)')
       console.log()
-      console.log(`  ${c.address(addr)}  ${c.bold(facet.name)}${verified}`)
+      console.log(`  ${c.address(addressLink(addr, facet.facetAddress, chain.explorerUrl))}  ${c.bold(facet.name)}${verified}`)
       for (const fn of facet.functions) {
         const name = fn.name ? fn.name : c.muted('(unknown)')
         console.log(`    ${c.muted(fn.selector)}  ${name}`)

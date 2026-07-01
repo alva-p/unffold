@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Unffold</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <img src="./unffold-icon.png" alt="" aria-hidden="true">
+          <div>
+            <h1>Unffold</h1>
+            <p id="statusText">Ready</p>
+          </div>
+        </div>
+        <button id="keyState" class="state" type="button">No key</button>
+      </header>
+
+      <section id="setupPanel" class="panel">
+        <div class="sectionHeader">
+          <h2 id="settingsTitle">Settings</h2>
+          <a id="apiKeyLink" href="https://etherscan.io/apidashboard" target="_blank" rel="noreferrer">Get your Etherscan API key here</a>
+        </div>
+        <form id="settingsForm" class="stack">
+          <label id="apiKeyLabel" for="apiKey">API key</label>
+          <input id="apiKey" name="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your Etherscan key">
+          <div class="row">
+            <div class="field">
+              <label id="chainLabel" for="chain">Default network</label>
+              <select id="chain" name="chain">
+                <option value="mainnet">Ethereum Mainnet</option>
+                <option value="base">Base</option>
+                <option value="bsc">BNB Smart Chain</option>
+                <option value="ronin">Ronin</option>
+                <option value="abstract">Abstract</option>
+                <option value="arbitrum">Arbitrum</option>
+                <option value="optimism">Optimism</option>
+                <option value="polygon">Polygon</option>
+                <option value="zksync">zkSync Era</option>
+                <option value="sepolia">Sepolia</option>
+                <option value="holesky">Holesky</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label id="languageLabel" for="language">Language</label>
+              <select id="language" name="language">
+                <option value="en">English</option>
+                <option value="es">Español</option>
+                <option value="pt">Português</option>
+              </select>
+            </div>
+          </div>
+          <button id="saveSettings" type="submit">Save settings</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <form id="scanForm" class="stack">
+          <label id="addressLabel" for="address">Address</label>
+          <div class="inputAction">
+            <input id="address" name="address" type="text" autocomplete="off" spellcheck="false" placeholder="0x... paste contract">
+            <button id="scanButton" type="submit">Analyze</button>
+          </div>
+          <div id="modeButtons" class="modeButtons" aria-label="Analysis mode"></div>
+        </form>
+      </section>
+
+      <section id="detectedPanel" class="panel" hidden>
+        <div class="sectionHeader compact">
+          <h2 id="foundTitle">Found on this page</h2>
+          <button id="refreshPageScan" class="textButton" type="button">Refresh</button>
+        </div>
+        <div id="detectedAddresses" class="detectedAddresses"></div>
+      </section>
+
+      <section id="errorPanel" class="errorPanel" hidden>
+        <div>
+          <h2 id="errorTitle">Could not analyze</h2>
+          <p id="errorMessage"></p>
+          <p id="errorHint"></p>
+        </div>
+        <button id="retryButton" class="secondaryButton" type="button">Try again</button>
+      </section>
+
+      <section id="resultPanel" class="result" hidden>
+        <div class="resultHead">
+          <div>
+            <span id="profileBadge" class="profileBadge">contract</span>
+            <h2 id="reportTitle"></h2>
+            <p id="reportSubtitle"></p>
+          </div>
+          <span id="riskPill" class="riskPill">low</span>
+        </div>
+
+        <p id="riskSummary" class="summary"></p>
+
+        <figure id="nftPreview" class="nftPreview" hidden>
+          <img id="nftPreviewImage" alt="NFT preview">
+        </figure>
+
+        <div id="badges" class="badges"></div>
+
+        <section>
+          <h3 id="checklistTitle">What to check before interacting</h3>
+          <ul id="checklist" class="checklist"></ul>
+        </section>
+
+        <div class="grid">
+          <section>
+            <h3 id="factsTitle">Facts</h3>
+            <dl id="facts"></dl>
+          </section>
+          <section>
+            <h3 id="warningsTitle">Warnings</h3>
+            <div id="warnings" class="warnings"></div>
+          </section>
+        </div>
+
+        <footer class="links">
+          <button id="copySummary" class="secondaryButton" type="button">Copy summary</button>
+          <a id="metadataLink" href="#" target="_blank" rel="noreferrer" hidden>Open metadata</a>
+          <a id="explorerLink" href="#" target="_blank" rel="noreferrer">Open explorer</a>
+        </footer>
+      </section>
+
+      <footer class="credit">
+        <span>Made by alva-p</span>
+        <a href="https://x.com/pimmpi_" target="_blank" rel="noreferrer" aria-label="X">X</a>
+        <a href="https://github.com/alva-p" target="_blank" rel="noreferrer" aria-label="GitHub">GH</a>
+      </footer>
+    </main>
+    <script src="./dist/popup.js"></script>
+  </body>
+</html>

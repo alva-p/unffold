@@ -1,27 +1,25 @@
-import { getAddress, isAddress } from 'viem'
-import { createClient } from '../core/rpc.js'
-import { resolveContract } from '../core/resolver.js'
-import { getUpgradeHistory, resolveProxyChain } from '../core/proxy-detector.js'
+import ora from 'ora'
+import { analyzeProxyProfile } from '../core/profiles/proxy-profile.js'
 import { c } from '../output/colors.js'
+import { addressLink } from '../output/links.js'
 import type { Config, ProxyInfo } from '../types.js'
-
-function validateAddress(raw: string): string {
-  if (!isAddress(raw)) throw new Error(`Invalid EVM address: ${raw}`)
-  return getAddress(raw)
-}
 
 function shortAddr(addr: string): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
-function printProxy(proxy: ProxyInfo, address: string): void {
+function linkedAddress(addr: string, explorerBase: string): string {
+  return c.address(addressLink(shortAddr(addr), addr, explorerBase))
+}
+
+function printProxy(proxy: ProxyInfo, address: string, explorerBase: string): void {
   console.log(`  ${c.muted('pattern')}    ${proxy.pattern}`)
-  console.log(`  ${c.muted('proxy')}      ${c.address(shortAddr(address))}  (this contract)`)
-  if (proxy.proxySlot) console.log(`  ${c.muted('impl slot')}  ${proxy.proxySlot.slice(0, 10)}...  ->  ${c.address(shortAddr(proxy.implementationAddress))}`)
-  else console.log(`  ${c.muted('impl')}       ${c.address(shortAddr(proxy.implementationAddress))}`)
-  if (proxy.adminAddress) console.log(`  ${c.muted('admin')}      ${c.address(shortAddr(proxy.adminAddress))}`)
+  console.log(`  ${c.muted('proxy')}      ${linkedAddress(address, explorerBase)}  (this contract)`)
+  if (proxy.proxySlot) console.log(`  ${c.muted('impl slot')}  ${proxy.proxySlot.slice(0, 10)}...  ->  ${linkedAddress(proxy.implementationAddress, explorerBase)}`)
+  else console.log(`  ${c.muted('impl')}       ${linkedAddress(proxy.implementationAddress, explorerBase)}`)
+  if (proxy.adminAddress) console.log(`  ${c.muted('admin')}      ${linkedAddress(proxy.adminAddress, explorerBase)}`)
   if (proxy.chain) {
-    console.log(`  ${c.muted('nested')}     ${proxy.chain.pattern}  ->  ${c.address(shortAddr(proxy.chain.implementationAddress))}`)
+    console.log(`  ${c.muted('nested')}     ${proxy.chain.pattern}  ->  ${linkedAddress(proxy.chain.implementationAddress, explorerBase)}`)
   }
 }
 
@@ -32,23 +30,19 @@ export async function runProxy(
   rpcOverride?: string,
   jsonOutput = false
 ): Promise<void> {
-  const address = validateAddress(rawAddress)
-  if (!jsonOutput) process.stdout.write(`  ${c.muted(`Inspecting proxy for ${address.slice(0, 6)}...${address.slice(-4)}...`)}\n`)
+  const spinner = jsonOutput ? null : ora({ text: `  Inspecting proxy for ${shortAddr(rawAddress)}...`, spinner: 'arc' }).start()
 
   try {
-    const client = createClient(chainName, config, rpcOverride)
-    const contract = await resolveContract(address, chainName, config)
-    const proxy = await resolveProxyChain(address, contract.abi, client)
-    const history = proxy ? await getUpgradeHistory(address, client) : []
+    const result = await analyzeProxyProfile(rawAddress, chainName, config, rpcOverride)
+    const { report, proxy, history } = result
+    const address = report.address
+    const risk = report.risk
+    const explorerBase = report.links.find(link => link.label === 'Explorer')?.url.replace(address, '') ?? ''
+
+    spinner?.stop()
 
     if (jsonOutput) {
-      console.log(JSON.stringify({
-        proxy,
-        history: history.map(entry => ({
-          ...entry,
-          blockNumber: entry.blockNumber.toString(),
-        })),
-      }, null, 2))
+      console.log(JSON.stringify(result, null, 2))
       return
     }
 
@@ -62,7 +56,13 @@ export async function runProxy(
       return
     }
 
-    printProxy(proxy, address)
+    printProxy(proxy, address, explorerBase)
+
+    console.log()
+    console.log(`  ${c.bold('RISK SUMMARY')}`)
+    console.log(`  ${c.muted('overall')}  ${risk.level === 'high' ? c.danger('high') : c.warn(risk.level)}`)
+    console.log(`  ${c.muted('score')}    ${risk.score}/100`)
+    console.log(`  ${c.muted('reason')}   ${risk.mainReason}`)
 
     console.log()
     console.log(`  ${c.bold('UPGRADE HISTORY')}`)
@@ -70,7 +70,7 @@ export async function runProxy(
       console.log(`  ${c.muted('No Upgraded(address) logs found from block 0.')}`)
     } else {
       for (const entry of history.slice(-8).reverse()) {
-        console.log(`  ${c.muted(entry.blockNumber.toString().padEnd(10))} ${c.address(shortAddr(entry.address))}`)
+        console.log(`  ${c.muted(entry.blockNumber.padEnd(10))} ${linkedAddress(entry.address, explorerBase)}`)
       }
     }
 
@@ -88,6 +88,7 @@ export async function runProxy(
     }
     console.log()
   } catch (err) {
+    spinner?.fail()
     throw err
   }
 }

@@ -1,8 +1,10 @@
 import ora from 'ora'
 import { getAddress, isAddress } from 'viem'
+import { getChainConfig } from '../core/rpc.js'
 import { resolveContract } from '../core/resolver.js'
 import { tryAnalyzeSource } from '../core/ast-analyzer.js'
 import { c } from '../output/colors.js'
+import { addressLink } from '../output/links.js'
 import type { AbiItem, AbiInput, Config } from '../types.js'
 
 function validateAddress(raw: string): string {
@@ -106,8 +108,11 @@ export async function runDiff(
 
     const shortA = `${addrA.slice(0, 6)}...${addrA.slice(-4)}`
     const shortB = `${addrB.slice(0, 6)}...${addrB.slice(-4)}`
+    const chain = getChainConfig(chainName)
+    const linkA = c.address(addressLink(shortA, addrA, chain.explorerUrl))
+    const linkB = c.address(addressLink(shortB, addrB, chain.explorerUrl))
     console.log()
-    console.log(`  ${c.bold('DIFF')}  ${c.address(shortA)} ${c.muted(contractA.name)}  ${c.dim('→')}  ${c.address(shortB)} ${c.muted(contractB.name)}  ${c.muted('[' + chainName + ']')}`)
+    console.log(`  ${c.bold('DIFF')}  ${linkA} ${c.muted(contractA.name)}  ${c.dim('→')}  ${linkB} ${c.muted(contractB.name)}  ${c.muted('[' + chainName + ']')}`)
     console.log(c.dim('  ──────────────────────────────────────────────────'))
 
     if (!contractA.isVerified) console.log(`  ${c.warn('⚠')} ${c.muted(shortA + ' is not verified — ABI may be incomplete')}`)

@@ -1,9 +1,10 @@
 import ora from 'ora'
-import { decodeFunctionData, decodeEventLog, formatEther, isHash } from 'viem'
-import { createClient } from '../core/rpc.js'
+import { decodeFunctionData, decodeEventLog, formatEther, isAddress, isHash } from 'viem'
+import { createClient, getChainConfig } from '../core/rpc.js'
 import { resolveContract } from '../core/resolver.js'
 import { detectProxy } from '../core/proxy-detector.js'
 import { c } from '../output/colors.js'
+import { addressLink, txLink } from '../output/links.js'
 import type { AbiItem, Config } from '../types.js'
 
 function mergeAbis(a: AbiItem[], b: AbiItem[]): AbiItem[] {
@@ -11,13 +12,16 @@ function mergeAbis(a: AbiItem[], b: AbiItem[]): AbiItem[] {
   return [...a, ...b.filter(item => !seen.has(`${item.type}:${item.name}`))]
 }
 
-function formatValue(value: unknown, depth = 0): string {
+function formatValue(value: unknown, explorerBase?: string, depth = 0): string {
   if (value === null || value === undefined) return 'null'
   if (typeof value === 'bigint') return value.toString()
   if (Array.isArray(value)) {
     if (value.length === 0) return '[]'
-    const items = value.map(v => formatValue(v, depth + 1))
+    const items = value.map(v => formatValue(v, explorerBase, depth + 1))
     return `[${items.join(', ')}]`
+  }
+  if (typeof value === 'string' && isAddress(value) && explorerBase) {
+    return c.address(addressLink(value, value, explorerBase))
   }
   if (typeof value === 'object') {
     return JSON.stringify(value, (_k, v) => typeof v === 'bigint' ? v.toString() : v)
@@ -131,18 +135,19 @@ export async function runTrace(
     }
 
     const short = (a: string) => `${a.slice(0, 6)}...${a.slice(-4)}`
+    const chain = getChainConfig(chainName)
     const statusLabel = receipt.status === 'success'
       ? c.success('success')
       : c.danger('reverted')
 
     console.log()
-    console.log(`  ${c.bold('TRACE')}  ${c.muted(short(txHash))}  ${c.muted('[' + chainName + ']')}`)
+    console.log(`  ${c.bold('TRACE')}  ${c.muted(txLink(short(txHash), txHash, chain.explorerUrl))}  ${c.muted('[' + chainName + ']')}`)
     console.log(c.dim('  ──────────────────────────────────────────────────'))
-    console.log(`  ${c.muted('from')}     ${c.address(tx.from)}`)
+    console.log(`  ${c.muted('from')}     ${c.address(addressLink(tx.from, tx.from, chain.explorerUrl))}`)
     const contractLabel = implName
       ? `${contract.name} ${c.muted('→')} ${implName}`
       : contract.name
-    console.log(`  ${c.muted('to')}       ${c.address(toAddress)}  ${c.muted(contractLabel)}`)
+    console.log(`  ${c.muted('to')}       ${c.address(addressLink(toAddress, toAddress, chain.explorerUrl))}  ${c.muted(contractLabel)}`)
     console.log(`  ${c.muted('block')}    ${tx.blockNumber?.toString() ?? 'pending'}`)
     if (tx.value && tx.value > 0n) {
       console.log(`  ${c.muted('value')}    ${formatEther(tx.value)} ETH`)
@@ -158,7 +163,7 @@ export async function runTrace(
       for (let i = 0; i < args.length; i++) {
         const name = inputs[i]?.name || `arg${i}`
         const type = inputs[i]?.type || ''
-        console.log(`  ${c.muted(name.padEnd(10))}  ${c.muted('(' + type + ')')}  ${formatValue(args[i])}`)
+        console.log(`  ${c.muted(name.padEnd(10))}  ${c.muted('(' + type + ')')}  ${formatValue(args[i], chain.explorerUrl)}`)
       }
     } else if (tx.input && tx.input.length > 2) {
       console.log(`  ${c.muted('selector')}  ${tx.input.slice(0, 10)}`)
@@ -176,7 +181,7 @@ export async function runTrace(
       for (const event of decodedEvents) {
         console.log(`\n  ${c.address(event.name)}`)
         for (const [key, val] of Object.entries(event.args)) {
-          console.log(`    ${c.muted(key.padEnd(12))}  ${formatValue(val)}`)
+          console.log(`    ${c.muted(key.padEnd(12))}  ${formatValue(val, chain.explorerUrl)}`)
         }
       }
     } else if (receipt.logs.length > 0) {

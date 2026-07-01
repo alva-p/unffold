@@ -1,9 +1,10 @@
+import ora from 'ora'
 import { isAddress, getAddress } from 'viem'
 import type { PublicClient } from 'viem'
 import { resolveContract } from '../core/resolver.js'
 import { resolveProxyChain } from '../core/proxy-detector.js'
 import { detectStandards } from '../core/standards.js'
-import { printFingerprint } from '../output/fingerprint.js'
+import { printFingerprint, printSimpleFingerprint } from '../output/fingerprint.js'
 import { c } from '../output/colors.js'
 import { printEoaInfo } from '../output/eoa.js'
 import type { Config } from '../types.js'
@@ -31,7 +32,9 @@ export async function runInspect(
   config: Config,
   rpcOverride?: string,
   jsonOutput = false,
-  startLoop = true
+  startLoop = true,
+  quietOutput = false,
+  simpleOutput = false
 ): Promise<void> {
   let address: string
   try {
@@ -49,7 +52,9 @@ export async function runInspect(
     return
   }
 
-  if (!jsonOutput) process.stdout.write(`  ${c.muted(`Resolving ${shortAddr(address)} on ${chainConfig.name}...`)}\n`)
+  const spinner = !jsonOutput && !quietOutput
+    ? ora({ text: `  Resolving ${shortAddr(address)} on ${chainConfig.name}...`, spinner: 'arc' }).start()
+    : null
 
   try {
     const client = createClient(chainName, config, rpcOverride)
@@ -60,6 +65,7 @@ export async function runInspect(
     ])
 
     if (!isContract) {
+      if (spinner) spinner.text = '  Loading wallet details...'
       let balance: bigint | undefined
       let transactionCount: number | undefined
       try {
@@ -82,11 +88,12 @@ export async function runInspect(
         return
       }
 
-      process.stdout.write('\x1B[1A\x1B[2K')
+      spinner?.stop()
       printEoaInfo(address, chainConfig.name, balance, transactionCount)
       return
     }
 
+    if (spinner) spinner.text = '  Resolving proxy and standards...'
     const proxy = await resolveProxyChain(address, contract.abi, client)
 
     if (proxy) {
@@ -129,27 +136,36 @@ export async function runInspect(
       return
     }
 
-    console.log()
-    if (contract.isVerified) {
-      console.log(`  ${c.success('✓')} ${c.muted('Source verified on Etherscan')}`)
-    }
-    const fnCount = (contract.abi || []).filter(i => i.type === 'function').length
-    const evCount = (contract.abi || []).filter(i => i.type === 'event').length
-    if (fnCount > 0) {
-      console.log(`  ${c.success('✓')} ${c.muted(`ABI parsed — ${fnCount} functions · ${evCount} events`)}`)
-    }
-    if (proxy) {
-      console.log(`  ${c.success('✓')} ${c.muted(`Proxy detected — ${proxy.pattern}`)}`)
-    }
-    console.log()
+    spinner?.stop()
 
-    printFingerprint(contract, proxy, standards, chainConfig.name, balance, totalSupply)
+    if (!quietOutput && !simpleOutput) {
+      console.log()
+      if (contract.isVerified) {
+        console.log(`  ${c.success('✓')} ${c.muted('Source verified on Etherscan')}`)
+      }
+      const fnCount = (contract.abi || []).filter(i => i.type === 'function').length
+      const evCount = (contract.abi || []).filter(i => i.type === 'event').length
+      if (fnCount > 0) {
+        console.log(`  ${c.success('✓')} ${c.muted(`ABI parsed — ${fnCount} functions · ${evCount} events`)}`)
+      }
+      if (proxy) {
+        console.log(`  ${c.success('✓')} ${c.muted(`Proxy detected — ${proxy.pattern}`)}`)
+      }
+      console.log()
+    }
 
-    if (startLoop) {
+    if (simpleOutput) {
+      printSimpleFingerprint(contract, proxy, standards, chainConfig.name, chainConfig.explorerUrl, balance, totalSupply)
+    } else {
+      printFingerprint(contract, proxy, standards, chainConfig.name, chainConfig.explorerUrl, balance, totalSupply)
+    }
+
+    if (startLoop && !simpleOutput) {
       const { runInteractiveLoop } = await import('../interactive.js')
       await runInteractiveLoop(address, chainName, config, rpcOverride)
     }
   } catch (err) {
+    spinner?.fail()
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`\n  ${c.danger('Error:')} ${msg}\n`)
     process.exit(1)
