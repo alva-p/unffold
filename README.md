@@ -10,19 +10,48 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" alt="unffold demo" width="700" />
+  <a href="https://www.npmjs.com/package/unfold-evm">npm</a>
+  ·
+  <a href="https://chromewebstore.google.com/detail/eldicnnoomlenmnnobkdpejopgjmaloe">Chrome extension</a>
+  ·
+  <a href="extension/PRIVACY.md">privacy policy</a>
+</p>
+
+## CLI
+
+This is the CLI. Paste a contract address or transaction hash and inspect proxies,
+tokens, NFTs, vaults, traces, storage, events, source metadata, and risk surface
+from the terminal.
+
+<p align="center">
+  <img src="docs/demo.gif" alt="Unffold CLI demo" width="700" />
 </p>
 
 ---
 
-`unffold` ships as both a CLI and a Chrome extension for fast EVM reconnaissance:
+## Chrome Extension
 
-- **CLI** — fast terminal inspection for contracts, proxies, traces, storage, events, and risk summaries.
-- **Chrome extension** — paste or auto-detect an address/tx on explorers and dapps, then inspect risk without opening a terminal.
+This is the extension. Use it for quick checks while browsing explorers, dapps,
+token pages, and NFT collections.
 
-Links: [npm](https://www.npmjs.com/package/unfold-evm) · [privacy policy](extension/PRIVACY.md)
+<p align="center">
+  <img src="docs/extension-nft-preview.png" alt="Unffold Chrome extension NFT preview" width="700" />
+</p>
 
-## Install
+<p align="center">
+  <a href="https://chromewebstore.google.com/detail/eldicnnoomlenmnnobkdpejopgjmaloe"><b>Install from Chrome Web Store</b></a>
+</p>
+
+- Detects contract addresses and transaction hashes on the active page.
+- Auto-selects the network from supported explorers.
+- Modes: `Analyze`, `Token`, `NFT`, `Proxy`, `Vault`, `Game`, `Security`, and `Trace`.
+- Shows a compact Risk Summary, warnings, checklist, facts, explorer links, copyable summary, and visible retryable errors.
+- NFT mode reads `contractURI`, `tokenURI(0/1)`, normalizes `ipfs://`/`ar://`, and renders the preview image when metadata exposes `image` or `image_url`.
+- Settings stay local in `chrome.storage.local`.
+
+---
+
+## CLI Install
 
 ```bash
 npm install -g unfold-evm
@@ -42,9 +71,7 @@ unffold
 
 After the fingerprint, `unffold` drops into an interactive menu so you can keep exploring without retyping the address.
 
-## What You Get
-
-### CLI
+## CLI Features
 
 - **Fingerprint** — name, standards (ERC-20, ERC-721, ERC-4626 …), compiler, license, balance, total supply
 - **Proxy analysis** — detects EIP-1967 Transparent, UUPS, Beacon, Diamond, Minimal Proxy; shows implementation address, admin, and upgrade history
@@ -57,19 +84,6 @@ After the fingerprint, `unffold` drops into an interactive menu so you can keep 
 - **Watch events** — stream decoded events live to the terminal
 - **Inspect storage** — read any slot by index, variable name, or mapping key
 - **Export** — Foundry fork test stub, ABI JSON, full contract JSON
-
-### Browser Extension
-
-<p align="center">
-  <img src="docs/extension-nft-preview.png" alt="Unffold Chrome extension NFT preview" width="700" />
-</p>
-
-- Detects contract addresses and transaction hashes on the active page.
-- Auto-selects the network from supported explorers.
-- Modes: `Analyze`, `Token`, `NFT`, `Proxy`, `Vault`, `Game`, `Security`, and `Trace`.
-- Shows a compact Risk Summary, warnings, checklist, facts, explorer links, copyable summary, and visible retryable errors.
-- NFT mode reads `contractURI`, `tokenURI(0/1)`, normalizes `ipfs://`/`ar://`, and renders the preview image when metadata exposes `image` or `image_url`.
-- Settings stay local in `chrome.storage.local`.
 
 ## Usage
 
@@ -207,9 +221,9 @@ unffold config show
 
 `ETHERSCAN_API_KEY` env var takes precedence over the config file.
 
-## Chrome Extension
+## Build Extension From Source
 
-The extension is meant for quick checks while browsing explorers, dapps, token pages, and NFT collections. It runs the same report layer as the CLI, but presents it as compact cards with mode buttons, facts, warnings, checklist items, explorer links, and copyable summaries.
+The extension runs the same report layer as the CLI, but presents it as compact cards with mode buttons, facts, warnings, checklist items, explorer links, and copyable summaries.
 
 Build the extension bundle:
 
