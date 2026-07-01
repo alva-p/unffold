@@ -1,5 +1,13 @@
 <p align="center">
-  <img src="https://img.shields.io/npm/v/unfold-evm?color=4ec994&label=npm&style=flat-square" alt="npm version" />
+  <a href="https://github.com/alva-p/unffold">
+    <img src="https://img.shields.io/badge/CLI-v0.2.0-4ec994?style=flat-square" alt="CLI version" />
+  </a>
+  <a href="https://chromewebstore.google.com/detail/eldicnnoomlenmnnobkdpejopgjmaloe">
+    <img src="https://img.shields.io/badge/Chrome-extension-27c9dc?style=flat-square" alt="Chrome extension" />
+  </a>
+  <a href="https://www.npmjs.com/package/unfold-evm">
+    <img src="https://img.shields.io/badge/npm-unfold--evm-cb3837?style=flat-square" alt="npm package" />
+  </a>
   <img src="https://img.shields.io/npm/l/unfold-evm?color=7eb8f7&style=flat-square" alt="license" />
   <img src="https://img.shields.io/node/v/unfold-evm?color=f5c842&style=flat-square" alt="node" />
   <img src="https://github.com/alva-p/unffold/actions/workflows/ci.yml/badge.svg" alt="CI" />
