@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <b>unffold</b> — inspect any EVM contract in seconds
+  <b>unffold</b> — Web3 inspection from the terminal and Chrome
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 
 ---
 
-`unffold` ships as both:
+`unffold` ships as both a CLI and a Chrome extension for fast EVM reconnaissance:
 
 - **CLI** — fast terminal inspection for contracts, proxies, traces, storage, events, and risk summaries.
 - **Chrome extension** — paste or auto-detect an address/tx on explorers and dapps, then inspect risk without opening a terminal.
@@ -59,6 +59,10 @@ After the fingerprint, `unffold` drops into an interactive menu so you can keep 
 - **Export** — Foundry fork test stub, ABI JSON, full contract JSON
 
 ### Browser Extension
+
+<p align="center">
+  <img src="docs/extension-nft-preview.png" alt="Unffold Chrome extension NFT preview" width="700" />
+</p>
 
 - Detects contract addresses and transaction hashes on the active page.
 - Auto-selects the network from supported explorers.
@@ -204,6 +208,8 @@ unffold config show
 `ETHERSCAN_API_KEY` env var takes precedence over the config file.
 
 ## Chrome Extension
+
+The extension is meant for quick checks while browsing explorers, dapps, token pages, and NFT collections. It runs the same report layer as the CLI, but presents it as compact cards with mode buttons, facts, warnings, checklist items, explorer links, and copyable summaries.
 
 Build the extension bundle:
 
