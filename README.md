@@ -221,42 +221,15 @@ unffold config show
 
 `ETHERSCAN_API_KEY` env var takes precedence over the config file.
 
-## Build Extension From Source
+## Extension Privacy
 
-The extension runs the same report layer as the CLI, but presents it as compact cards with mode buttons, facts, warnings, checklist items, explorer links, and copyable summaries.
-
-Build the extension bundle:
-
-```bash
-npm run build:extension
-```
-
-Then open `chrome://extensions`, enable developer mode, choose **Load unpacked**,
-and select the `extension/` directory.
-
-The extension supports the same chains as the CLI:
-
-`mainnet` · `arbitrum` · `base` · `bsc` · `ronin` · `abstract` · `optimism` · `polygon` · `zksync` · `sepolia` · `holesky`
-
-It uses:
+The extension does not send data to a Unffold server. It uses:
 
 - `chrome.storage.local` for the Etherscan API key, default network, and UI language.
 - The active tab only to scan visible text/links for addresses and tx hashes.
 - Public RPCs, Etherscan V2-compatible APIs, Sourcify, IPFS, and Arweave for contract and NFT metadata.
 
 No backend is required.
-
-### Extension Files
-
-- `extension/manifest.json` — Chrome MV3 manifest and host permissions.
-- `extension/popup.html` — popup shell.
-- `extension/styles.css` — popup UI.
-- `extension/src/popup.ts` — extension logic bundled into `extension/dist/popup.js`.
-- `extension/icons/` — Chrome Web Store icon sizes: 16, 32, 48, 128.
-
-### Privacy
-
-The extension does not send data to a Unffold server. Your API key stays in local Chrome storage. Analysis requests go directly from your browser to the configured RPC/explorer services, Sourcify, and metadata gateways needed for the selected chain.
 
 See [extension/PRIVACY.md](extension/PRIVACY.md).
 
