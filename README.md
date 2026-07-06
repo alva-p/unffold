@@ -2,7 +2,7 @@
   <a href="https://github.com/alva-p/unffold">
     <img src="https://img.shields.io/badge/CLI-v0.2.0-4ec994?style=flat-square" alt="CLI version" />
   </a>
-  <a href="https://chromewebstore.google.com/detail/eldicnnoomlenmnnobkdpejopgjmaloe">
+  <a href="https://chromewebstore.google.com/detail/unffold-web3-inspector/eldicnnoomlenmnnobkdpejopgjmaloe">
     <img src="https://img.shields.io/badge/Chrome-extension-27c9dc?style=flat-square" alt="Chrome extension" />
   </a>
   <a href="https://www.npmjs.com/package/unfold-evm">
@@ -20,7 +20,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/unfold-evm">npm</a>
   ·
-  <a href="https://chromewebstore.google.com/detail/eldicnnoomlenmnnobkdpejopgjmaloe">Chrome extension</a>
+  <a href="https://chromewebstore.google.com/detail/unffold-web3-inspector/eldicnnoomlenmnnobkdpejopgjmaloe">Chrome extension</a>
   ·
   <a href="extension/PRIVACY.md">privacy policy</a>
 </p>
@@ -47,7 +47,7 @@ token pages, and NFT collections.
 </p>
 
 <p align="center">
-  <a href="https://chromewebstore.google.com/detail/eldicnnoomlenmnnobkdpejopgjmaloe"><b>Install from Chrome Web Store</b></a>
+  <a href="https://chromewebstore.google.com/detail/unffold-web3-inspector/eldicnnoomlenmnnobkdpejopgjmaloe"><b>Install from Chrome Web Store</b></a>
 </p>
 
 - Detects contract addresses and transaction hashes on the active page.
