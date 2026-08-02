@@ -54,6 +54,10 @@ const chainSelect = document.querySelector<HTMLSelectElement>('#chain')!
 const languageSelect = document.querySelector<HTMLSelectElement>('#language')!
 const scanButton = document.querySelector<HTMLButtonElement>('#scanButton')!
 const modeButtons = document.querySelector<HTMLElement>('#modeButtons')!
+const modePickerLabel = document.querySelector<HTMLElement>('#modePickerLabel')!
+const activeModeLabel = document.querySelector<HTMLElement>('#activeModeLabel')!
+const networkState = document.querySelector<HTMLButtonElement>('#networkState')!
+const networkName = document.querySelector<HTMLElement>('#networkName')!
 const detectedPanel = document.querySelector<HTMLElement>('#detectedPanel')!
 const detectedAddresses = document.querySelector<HTMLElement>('#detectedAddresses')!
 const refreshPageScan = document.querySelector<HTMLButtonElement>('#refreshPageScan')!
@@ -62,23 +66,33 @@ const errorTitle = document.querySelector<HTMLElement>('#errorTitle')!
 const errorMessage = document.querySelector<HTMLElement>('#errorMessage')!
 const errorHint = document.querySelector<HTMLElement>('#errorHint')!
 const retryButton = document.querySelector<HTMLButtonElement>('#retryButton')!
+const loadingPanel = document.querySelector<HTMLElement>('#loadingPanel')!
+const emptyPanel = document.querySelector<HTMLElement>('#emptyPanel')!
+const emptyMessage = document.querySelector<HTMLElement>('#emptyMessage')!
 const statusText = document.querySelector<HTMLElement>('#statusText')!
 const keyState = document.querySelector<HTMLButtonElement>('#keyState')!
 const resultPanel = document.querySelector<HTMLElement>('#resultPanel')!
 const profileBadge = document.querySelector<HTMLElement>('#profileBadge')!
 const reportTitle = document.querySelector<HTMLElement>('#reportTitle')!
 const reportSubtitle = document.querySelector<HTMLElement>('#reportSubtitle')!
+const reportAddress = document.querySelector<HTMLElement>('#reportAddress')!
+const copyAddress = document.querySelector<HTMLButtonElement>('#copyAddress')!
 const riskPill = document.querySelector<HTMLElement>('#riskPill')!
+const riskCallout = document.querySelector<HTMLElement>('#riskCallout')!
+const riskIcon = document.querySelector<HTMLElement>('#riskIcon')!
+const riskTitle = document.querySelector<HTMLElement>('#riskTitle')!
 const riskSummary = document.querySelector<HTMLElement>('#riskSummary')!
 const nftPreview = document.querySelector<HTMLElement>('#nftPreview')!
 const nftPreviewImage = document.querySelector<HTMLImageElement>('#nftPreviewImage')!
 const badges = document.querySelector<HTMLElement>('#badges')!
-const checklist = document.querySelector<HTMLElement>('#checklist')!
 const facts = document.querySelector<HTMLElement>('#facts')!
 const warnings = document.querySelector<HTMLElement>('#warnings')!
+const warningCount = document.querySelector<HTMLElement>('#warningCount')!
+const showMoreWarnings = document.querySelector<HTMLButtonElement>('#showMoreWarnings')!
 const copySummary = document.querySelector<HTMLButtonElement>('#copySummary')!
 const explorerLink = document.querySelector<HTMLAnchorElement>('#explorerLink')!
 const metadataLink = document.querySelector<HTMLAnchorElement>('#metadataLink')!
+const toast = document.querySelector<HTMLElement>('#toast')!
 
 const labels = {
   en: {
@@ -86,6 +100,8 @@ const labels = {
     settings: 'Settings',
     noKey: 'No key',
     keySaved: 'Key saved',
+    closeSettings: 'Close settings',
+    addressCopied: 'Address copied',
     pasteKey: 'Paste an API key first',
     saveKey: 'Save an API key first',
     analyzing: 'Analyzing...',
@@ -101,11 +117,18 @@ const labels = {
     addressLabel: 'Address',
     addressPlaceholder: '0x... paste contract or tx',
     analyze: 'Analyze',
+    advancedAnalysis: 'Advanced analysis',
+    autoMode: 'Auto',
+    emptyMessage: 'Paste a contract address or a transaction hash. Unffold reads it on-chain and tells you what it is before you interact.',
     foundTitle: 'Found on this page',
     refresh: 'Refresh',
-    checklistTitle: 'What to check before interacting',
     factsTitle: 'Facts',
     warningsTitle: 'Warnings',
+    whyHighRisk: 'Why this is high risk',
+    whyReviewNeeded: 'Why this needs review',
+    whyLooksSafer: 'Why this looks safer',
+    showMoreWarnings: 'Show all warnings',
+    showFewerWarnings: 'Show fewer warnings',
     copySummary: 'Copy summary',
     openExplorer: 'Open explorer',
     openMetadata: 'Open metadata',
@@ -119,7 +142,6 @@ const labels = {
     genericHint: 'Check the address, network, and API key, then try again.',
     noWarnings: 'No high or medium warnings.',
     noFacts: 'No facts available.',
-    defaultChecklist: 'No high or medium warnings were detected. Still verify the address, chain, and official project links before interacting.',
     noWarningsCopy: '- No high or medium warnings detected.',
     risk: 'Risk',
     whatToCheck: 'What to check:',
@@ -132,6 +154,8 @@ const labels = {
     settings: 'Ajustes',
     noKey: 'Sin key',
     keySaved: 'Key guardada',
+    closeSettings: 'Cerrar ajustes',
+    addressCopied: 'Address copiada',
     pasteKey: 'Pegá una API key primero',
     saveKey: 'Guardá una API key primero',
     analyzing: 'Analizando...',
@@ -147,11 +171,18 @@ const labels = {
     addressLabel: 'Address',
     addressPlaceholder: '0x... pegá contrato o tx',
     analyze: 'Analizar',
+    advancedAnalysis: 'Análisis avanzado',
+    autoMode: 'Auto',
+    emptyMessage: 'Pegá una address de contrato o transaction hash. Unffold la lee on-chain y te dice qué es antes de interactuar.',
     foundTitle: 'Encontradas en esta página',
     refresh: 'Actualizar',
-    checklistTitle: 'Qué revisar antes de interactuar',
     factsTitle: 'Datos',
     warningsTitle: 'Alertas',
+    whyHighRisk: 'Por qué el riesgo es alto',
+    whyReviewNeeded: 'Por qué requiere revisión',
+    whyLooksSafer: 'Por qué se ve más seguro',
+    showMoreWarnings: 'Mostrar todas las alertas',
+    showFewerWarnings: 'Mostrar menos alertas',
     copySummary: 'Copiar resumen',
     openExplorer: 'Abrir explorer',
     openMetadata: 'Abrir metadata',
@@ -165,7 +196,6 @@ const labels = {
     genericHint: 'Revisá address, red y API key, y reintentá.',
     noWarnings: 'No hay alertas medias o altas.',
     noFacts: 'No hay datos disponibles.',
-    defaultChecklist: 'No se detectaron alertas medias o altas. Igual verificá la address, la red y los links oficiales antes de interactuar.',
     noWarningsCopy: '- No se detectaron alertas medias o altas.',
     risk: 'Riesgo',
     whatToCheck: 'Qué revisar:',
@@ -178,6 +208,8 @@ const labels = {
     settings: 'Ajustes',
     noKey: 'Sem key',
     keySaved: 'Key salva',
+    closeSettings: 'Fechar ajustes',
+    addressCopied: 'Address copiado',
     pasteKey: 'Cole uma API key primeiro',
     saveKey: 'Salve uma API key primeiro',
     analyzing: 'Analisando...',
@@ -193,11 +225,18 @@ const labels = {
     addressLabel: 'Address',
     addressPlaceholder: '0x... cole contrato ou tx',
     analyze: 'Analisar',
+    advancedAnalysis: 'Análise avançada',
+    autoMode: 'Auto',
+    emptyMessage: 'Cole um address de contrato ou transaction hash. Unffold lê on-chain e explica o que é antes de você interagir.',
     foundTitle: 'Encontradas nesta página',
     refresh: 'Atualizar',
-    checklistTitle: 'O que verificar antes de interagir',
     factsTitle: 'Dados',
     warningsTitle: 'Alertas',
+    whyHighRisk: 'Por que o risco é alto',
+    whyReviewNeeded: 'Por que precisa de revisão',
+    whyLooksSafer: 'Por que parece mais seguro',
+    showMoreWarnings: 'Mostrar todos os alertas',
+    showFewerWarnings: 'Mostrar menos alertas',
     copySummary: 'Copiar resumo',
     openExplorer: 'Abrir explorer',
     openMetadata: 'Abrir metadata',
@@ -211,7 +250,6 @@ const labels = {
     genericHint: 'Verifique address, rede e API key, e tente novamente.',
     noWarnings: 'Nenhum alerta médio ou alto.',
     noFacts: 'Nenhum dado disponível.',
-    defaultChecklist: 'Nenhum alerta médio ou alto foi detectado. Mesmo assim, verifique o address, a rede e os links oficiais antes de interagir.',
     noWarningsCopy: '- Nenhum alerta médio ou alto detectado.',
     risk: 'Risco',
     whatToCheck: 'O que verificar:',
@@ -224,6 +262,9 @@ const labels = {
 let settings: StoredSettings = {}
 let currentReport: ProfileReport | null = null
 let selectedMode: AnalysisMode = 'analyze'
+let loadingTimer: number | undefined
+let toastTimer: number | undefined
+let allWarningsVisible = false
 
 const modes: Array<{ mode: AnalysisMode; label: string }> = [
   { mode: 'analyze', label: 'Analyze' },
@@ -255,6 +296,37 @@ function setStoredSettings(next: StoredSettings): Promise<void> {
 
 function setStatus(message: string): void {
   statusText.textContent = message
+}
+
+function showToast(message: string): void {
+  window.clearTimeout(toastTimer)
+  toast.textContent = message
+  toast.dataset.visible = 'true'
+  toastTimer = window.setTimeout(() => { toast.dataset.visible = 'false' }, 2200)
+}
+
+function startLoading(): void {
+  window.clearTimeout(loadingTimer)
+  resultPanel.hidden = true
+  detectedPanel.hidden = true
+  emptyPanel.hidden = true
+  loadingTimer = window.setTimeout(() => { loadingPanel.hidden = false }, 180)
+}
+
+function stopLoading(): void {
+  window.clearTimeout(loadingTimer)
+  loadingPanel.hidden = true
+}
+
+function setSettingsOpen(open: boolean): void {
+  setupPanel.hidden = !open
+  keyState.textContent = open && settings.etherscanApiKey ? t('closeSettings') : settings.etherscanApiKey ? t('settings') : t('noKey')
+  if (open) apiKeyInput.focus()
+}
+
+function syncNetworkName(): void {
+  const selected = chainSelect.selectedOptions[0]?.textContent ?? settings.defaultChain ?? 'mainnet'
+  networkName.textContent = settings.defaultChain === 'mainnet' ? 'Ethereum' : selected.replace(' testnet', '')
 }
 
 function shortAddress(address: string): string {
@@ -295,12 +367,12 @@ function syncSettingsState(keepPanel = false): void {
   const hasKey = Boolean(settings.etherscanApiKey)
   const chain = settings.defaultChain ?? 'mainnet'
   const language = settings.language ?? 'en'
-  keyState.textContent = hasKey ? t('settings') : t('noKey')
   keyState.classList.toggle('ready', hasKey)
-  if (!keepPanel) setupPanel.hidden = hasKey
   scanButton.disabled = !hasKey
   chainSelect.value = chain
   languageSelect.value = language
+  setSettingsOpen(keepPanel ? !setupPanel.hidden : !hasKey)
+  syncNetworkName()
   document.documentElement.lang = language
   document.querySelector('#settingsTitle')!.textContent = t('settingsTitle')
   document.querySelector('#apiKeyLink')!.textContent = t('apiKeyLink')
@@ -312,9 +384,10 @@ function syncSettingsState(keepPanel = false): void {
   document.querySelector('#addressLabel')!.textContent = t('addressLabel')
   addressInput.placeholder = t('addressPlaceholder')
   scanButton.textContent = t('analyze')
+  modePickerLabel.textContent = t('advancedAnalysis')
+  emptyMessage.textContent = t('emptyMessage')
   document.querySelector('#foundTitle')!.textContent = t('foundTitle')
   refreshPageScan.textContent = t('refresh')
-  document.querySelector('#checklistTitle')!.textContent = t('checklistTitle')
   document.querySelector('#factsTitle')!.textContent = t('factsTitle')
   document.querySelector('#warningsTitle')!.textContent = t('warningsTitle')
   copySummary.textContent = t('copySummary')
@@ -334,8 +407,11 @@ function errorHintFor(message: string): string {
 }
 
 function showError(message: string, hint = errorHintFor(message)): void {
+  stopLoading()
   currentReport = null
   resultPanel.hidden = true
+  detectedPanel.hidden = true
+  emptyPanel.hidden = true
   errorMessage.textContent = message
   errorHint.textContent = hint
   errorPanel.hidden = false
@@ -392,12 +468,16 @@ function renderModeButtons(activeProfile?: string): void {
   const items = isTxHash(addressInput.value.trim()) ? traceMode : modes
   if (items === traceMode && selectedMode !== 'trace') selectedMode = 'trace'
   if (items === modes && selectedMode === 'trace') selectedMode = 'analyze'
+  const selected = items.find(item => item.mode === selectedMode)
+  activeModeLabel.textContent = selectedMode === 'analyze' && activeProfile
+    ? `${t('autoMode')} · ${activeProfile}`
+    : selected?.label ?? t('autoMode')
 
   modeButtons.replaceChildren(...items.map(item => {
     const button = document.createElement('button')
     button.type = 'button'
     button.className = 'modeButton'
-    const active = item.mode === selectedMode || item.mode === activeProfile
+    const active = item.mode === selectedMode
     button.classList.toggle('active', active)
     button.textContent = item.label
     button.addEventListener('click', () => {
@@ -450,12 +530,20 @@ function renderWarnings(values: ProfileWarning[]): void {
     empty.className = 'empty'
     empty.textContent = t('noWarnings')
     warnings.replaceChildren(empty)
+    warningCount.textContent = ''
+    showMoreWarnings.hidden = true
     return
   }
 
-  warnings.replaceChildren(...values.map(warning => {
+  const visible = allWarningsVisible ? values : values.slice(0, 3)
+  warningCount.textContent = values.length > 3 ? `${visible.length} of ${values.length}` : String(values.length)
+  showMoreWarnings.hidden = values.length <= 3
+  showMoreWarnings.textContent = allWarningsVisible ? t('showFewerWarnings') : t('showMoreWarnings')
+
+  warnings.replaceChildren(...visible.map((warning, index) => {
     const item = document.createElement('details')
     item.className = `warning ${warning.severity}`
+    item.open = index === 0 && warning.severity === 'high'
 
     const header = document.createElement('summary')
 
@@ -474,18 +562,6 @@ function renderWarnings(values: ProfileWarning[]): void {
 
     header.append(title, severity)
     item.append(header, body, recommendation)
-    return item
-  }))
-}
-
-function renderChecklist(values: ProfileWarning[]): void {
-  const items = values.length > 0
-    ? values.slice(0, 5).map(warning => warning.recommendation)
-    : [t('defaultChecklist')]
-
-  checklist.replaceChildren(...items.map(text => {
-    const item = document.createElement('li')
-    item.textContent = text
     return item
   }))
 }
@@ -515,19 +591,27 @@ function summaryText(report: ProfileReport): string {
 }
 
 function renderReport(report: ProfileReport): void {
+  stopLoading()
   currentReport = report
+  allWarningsVisible = false
   clearError()
+  detectedPanel.hidden = true
+  emptyPanel.hidden = true
   if (selectedMode === 'analyze' && modes.some(item => item.mode === report.profile)) {
     renderModeButtons(report.profile)
   }
   profileBadge.textContent = report.profile
   reportTitle.textContent = report.title
   reportSubtitle.textContent = report.subtitle
+  reportAddress.textContent = shortAddress(report.address)
+  reportAddress.title = report.address
   riskPill.textContent = riskCopy(report.risk.level)
   riskPill.className = `riskPill ${report.risk.level}`
-  riskSummary.textContent = report.risk.summary
+  riskCallout.className = `riskCallout ${report.risk.level}`
+  riskIcon.textContent = report.risk.level === 'high' ? '!' : report.risk.level === 'medium' ? '!' : '✓'
+  riskTitle.textContent = report.risk.level === 'high' ? t('whyHighRisk') : report.risk.level === 'medium' ? t('whyReviewNeeded') : t('whyLooksSafer')
+  riskSummary.textContent = report.risk.mainReason || report.risk.summary
   renderBadges(report.badges)
-  renderChecklist(report.warnings)
   renderFacts(report.facts)
   renderWarnings(report.warnings)
 
@@ -590,19 +674,32 @@ function renderDetectedTargets(targets: PageTargets): void {
     ...targets.addresses.map(value => ({ value, label: shortAddress(value), mode: 'analyze' as AnalysisMode })),
   ]
   detectedPanel.hidden = values.length === 0
-  detectedAddresses.replaceChildren(...values.map(target => {
+  emptyPanel.hidden = values.length > 0 || currentReport !== null || !errorPanel.hidden || !loadingPanel.hidden
+  detectedAddresses.replaceChildren(...values.map((target, index) => {
+    const row = document.createElement('div')
+    row.className = 'detectedRow'
+
+    const kind = document.createElement('span')
+    kind.className = 'detectedKind'
+    kind.textContent = target.mode === 'trace' ? 'TX' : String(index + 1).padStart(2, '0')
+
+    const value = document.createElement('span')
+    value.className = 'detectedValue'
+    value.textContent = target.label
+    value.title = target.value
+
     const button = document.createElement('button')
-    button.className = 'addressButton'
+    button.className = 'detectedAction'
     button.type = 'button'
-    button.textContent = target.mode === 'trace' ? `tx ${target.label}` : target.label
-    button.title = target.value
+    button.textContent = target.mode === 'trace' ? 'Trace' : t('analyze')
     button.addEventListener('click', () => {
       selectedMode = target.mode
       addressInput.value = target.value
       renderModeButtons()
       void scanAddress()
     })
-    return button
+    row.append(kind, value, button)
+    return row
   }))
 }
 
@@ -632,6 +729,7 @@ async function scanAddress(): Promise<void> {
   scanButton.disabled = true
   clearError()
   setStatus(t('analyzing'))
+  startLoading()
 
   try {
     const report = await runSelectedAnalysis(address, chain, config)
@@ -640,6 +738,7 @@ async function scanAddress(): Promise<void> {
   } catch (error) {
     showError((error as Error).message)
   } finally {
+    stopLoading()
     scanButton.disabled = !settings.etherscanApiKey
   }
 }
@@ -669,6 +768,7 @@ settingsForm.addEventListener('submit', async event => {
   apiKeyInput.value = ''
   syncSettingsState()
   setStatus(t('keySaved'))
+  showToast(t('keySaved'))
 })
 
 addressInput.addEventListener('input', () => {
@@ -676,13 +776,18 @@ addressInput.addEventListener('input', () => {
 })
 
 keyState.addEventListener('click', () => {
-  setupPanel.hidden = !setupPanel.hidden
-  if (!setupPanel.hidden) apiKeyInput.focus()
+  setSettingsOpen(Boolean(setupPanel.hidden))
+})
+
+networkState.addEventListener('click', () => {
+  setSettingsOpen(true)
+  chainSelect.focus()
 })
 
 chainSelect.addEventListener('change', async () => {
   settings = { ...settings, defaultChain: chainSelect.value || 'mainnet' }
   await setStoredSettings(settings)
+  syncNetworkName()
 })
 
 languageSelect.addEventListener('change', async () => {
@@ -703,6 +808,19 @@ copySummary.addEventListener('click', async () => {
   if (!currentReport) return
   await navigator.clipboard.writeText(summaryText(currentReport))
   setStatus(t('copied'))
+  showToast(t('copied'))
+})
+
+copyAddress.addEventListener('click', async () => {
+  if (!currentReport) return
+  await navigator.clipboard.writeText(currentReport.address)
+  showToast(t('addressCopied'))
+})
+
+showMoreWarnings.addEventListener('click', () => {
+  if (!currentReport) return
+  allWarningsVisible = !allWarningsVisible
+  renderWarnings(currentReport.warnings)
 })
 
 scanForm.addEventListener('submit', event => {

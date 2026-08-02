@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Unffold Web3 Inspector",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Inspect EVM contracts, tokens, NFTs, proxies, vaults, and transactions from Chrome.",
   "icons": {
     "16": "icons/icon16.png",

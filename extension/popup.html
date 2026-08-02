@@ -10,16 +10,22 @@
     <main class="shell">
       <header class="topbar">
         <div class="brand">
-          <img src="./unffold-icon.png" alt="" aria-hidden="true">
+          <img src="./icons/icon48.png" alt="" aria-hidden="true">
           <div>
             <h1>Unffold</h1>
-            <p id="statusText">Ready</p>
+            <p id="statusText" aria-live="polite">Ready</p>
           </div>
         </div>
+        <span class="topbarSpacer"></span>
+        <button id="networkState" class="networkState" type="button">
+          <span class="networkDot" aria-hidden="true"></span>
+          <span id="networkName">Ethereum</span>
+          <span class="networkChevron" aria-hidden="true">▼</span>
+        </button>
         <button id="keyState" class="state" type="button">No key</button>
       </header>
 
-      <section id="setupPanel" class="panel">
+      <section id="setupPanel" class="settingsPanel">
         <div class="sectionHeader">
           <h2 id="settingsTitle">Settings</h2>
           <a id="apiKeyLink" href="https://etherscan.io/apidashboard" target="_blank" rel="noreferrer">Get your Etherscan API key here</a>
@@ -59,14 +65,20 @@
         </form>
       </section>
 
-      <section class="panel">
+      <section id="scanPanel" class="scanner">
         <form id="scanForm" class="stack">
           <label id="addressLabel" for="address">Address</label>
           <div class="inputAction">
             <input id="address" name="address" type="text" autocomplete="off" spellcheck="false" placeholder="0x... paste contract">
             <button id="scanButton" type="submit">Analyze</button>
           </div>
-          <div id="modeButtons" class="modeButtons" aria-label="Analysis mode"></div>
+          <details class="modeDisclosure">
+            <summary>
+              <span id="modePickerLabel">Advanced analysis</span>
+              <span id="activeModeLabel">Auto</span>
+            </summary>
+            <div id="modeButtons" class="modeButtons" aria-label="Analysis mode"></div>
+          </details>
         </form>
       </section>
 
@@ -87,38 +99,74 @@
         <button id="retryButton" class="secondaryButton" type="button">Try again</button>
       </section>
 
-      <section id="resultPanel" class="result" hidden>
-        <div class="resultHead">
-          <div>
-            <span id="profileBadge" class="profileBadge">contract</span>
-            <h2 id="reportTitle"></h2>
-            <p id="reportSubtitle"></p>
+      <section id="loadingPanel" class="loadingPanel" aria-label="Analyzing" aria-busy="true" hidden>
+        <div class="loadingProgress"><span></span></div>
+        <div class="loadingBody">
+          <div class="skeleton skeletonTitle"></div>
+          <div class="skeleton skeletonLine"></div>
+          <div class="skeleton skeletonCallout"></div>
+          <div class="skeletonBadges">
+            <span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span>
           </div>
-          <span id="riskPill" class="riskPill">low</span>
+          <div class="skeleton skeletonLine short"></div>
+          <div class="loadingSteps" aria-hidden="true">
+            <span>✓ bytecode fetched</span>
+            <span>✓ proxy pattern resolved</span>
+            <span class="pending">· reading verified source…</span>
+          </div>
         </div>
+      </section>
 
-        <p id="riskSummary" class="summary"></p>
+      <section id="emptyPanel" class="emptyPanel">
+        <span class="emptyIcon" aria-hidden="true">0x</span>
+        <p id="emptyMessage">Paste a contract address or a transaction hash. Unffold reads it on-chain and tells you what it is before you interact.</p>
+      </section>
 
-        <figure id="nftPreview" class="nftPreview" hidden>
-          <img id="nftPreviewImage" alt="NFT preview">
-        </figure>
+      <section id="resultPanel" class="result" hidden>
+        <div class="resultContent">
+          <div class="resultHead">
+            <figure id="nftPreview" class="nftPreview" hidden>
+              <img id="nftPreviewImage" alt="NFT preview">
+            </figure>
+            <div class="resultIdentity">
+              <span id="profileBadge" class="profileBadge">contract</span>
+              <h2 id="reportTitle"></h2>
+              <p id="reportSubtitle"></p>
+              <div class="reportAddressRow">
+                <span id="reportAddress"></span>
+                <button id="copyAddress" type="button" aria-label="Copy address">⧉</button>
+              </div>
+            </div>
+            <span id="riskPill" class="riskPill">low</span>
+          </div>
 
-        <div id="badges" class="badges"></div>
+          <div id="riskCallout" class="riskCallout low">
+            <div class="riskCalloutTitle">
+              <span id="riskIcon" class="riskIcon" aria-hidden="true">✓</span>
+              <strong id="riskTitle">Why this looks safer</strong>
+            </div>
+            <p id="riskSummary"></p>
+          </div>
 
-        <section>
-          <h3 id="checklistTitle">What to check before interacting</h3>
-          <ul id="checklist" class="checklist"></ul>
-        </section>
+          <div id="badges" class="badges"></div>
 
-        <div class="grid">
-          <section>
-            <h3 id="factsTitle">Facts</h3>
-            <dl id="facts"></dl>
-          </section>
-          <section>
-            <h3 id="warningsTitle">Warnings</h3>
+          <section class="warningSection">
+            <div class="contentHeader">
+              <h3 id="warningsTitle">Alerts</h3>
+              <span class="headerLine"></span>
+              <span id="warningCount"></span>
+            </div>
             <div id="warnings" class="warnings"></div>
+            <button id="showMoreWarnings" class="showMoreButton" type="button" hidden></button>
           </section>
+
+          <details class="technicalDetails">
+            <summary>
+              <span id="factsTitle">Facts</span>
+              <span class="detailsChevron" aria-hidden="true">▼</span>
+            </summary>
+            <dl id="facts"></dl>
+          </details>
         </div>
 
         <footer class="links">
@@ -133,6 +181,7 @@
         <a href="https://x.com/pimmpi_" target="_blank" rel="noreferrer" aria-label="X">X</a>
         <a href="https://github.com/alva-p" target="_blank" rel="noreferrer" aria-label="GitHub">GH</a>
       </footer>
+      <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
     </main>
     <script src="./dist/popup.js"></script>
   </body>
