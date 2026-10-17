@@ -25,18 +25,6 @@
   <a href="extension/PRIVACY.md">privacy policy</a>
 </p>
 
-## CLI
-
-This is the CLI. Paste a contract address or transaction hash and inspect proxies,
-tokens, NFTs, vaults, traces, storage, events, source metadata, and risk surface
-from the terminal.
-
-<p align="center">
-  <img src="docs/demo.gif" alt="Unffold CLI demo" width="700" />
-</p>
-
----
-
 ## Chrome Extension
 
 This is the extension. Use it for quick checks while browsing explorers, dapps,
@@ -55,17 +43,38 @@ token pages, and NFT collections.
 - Modes: `Analyze`, `Token`, `NFT`, `Proxy`, `Vault`, `Game`, `Security`, and `Trace`.
 - Shows a compact Risk Summary, warnings, checklist, facts, explorer links, copyable summary, and visible retryable errors.
 - NFT mode reads `contractURI`, `tokenURI(0/1)`, normalizes `ipfs://`/`ar://`, and renders the preview image when metadata exposes `image` or `image_url`.
+- Works without setup. An Etherscan API key is optional (adds Etherscan-verified source; Sourcify is used otherwise).
 - Settings stay local in `chrome.storage.local`.
+
+---
+
+## CLI
+
+This is the CLI. Paste a contract address or transaction hash and inspect proxies,
+tokens, NFTs, vaults, traces, storage, events, source metadata, and risk surface
+from the terminal.
+
+<p align="center">
+  <img src="docs/demo.gif" alt="Unffold CLI demo" width="700" />
+</p>
 
 ---
 
 ## CLI Install
 
+Try it without installing:
+
+```bash
+npx unfold-evm 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0
+```
+
+Or install globally. The package is `unfold-evm` and the command is `unffold`:
+
 ```bash
 npm install -g unfold-evm
 ```
 
-Requires Node.js 20+.
+Requires Node.js 20+. No API key needed to start; run `unffold config init` to add an Etherscan key later.
 
 ## Quick start
 

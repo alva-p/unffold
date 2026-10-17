@@ -98,18 +98,15 @@ const labels = {
   en: {
     ready: 'Ready',
     settings: 'Settings',
-    noKey: 'No key',
     keySaved: 'Key saved',
     closeSettings: 'Close settings',
     addressCopied: 'Address copied',
-    pasteKey: 'Paste an API key first',
-    saveKey: 'Save an API key first',
     analyzing: 'Analyzing...',
     detected: 'Detected',
     copied: 'Summary copied',
     settingsTitle: 'Settings',
     apiKeyLink: 'Get your Etherscan API key here',
-    apiKeyLabel: 'API key',
+    apiKeyLabel: 'API key (optional, adds Etherscan source)',
     apiKeyPlaceholder: 'Paste your Etherscan key',
     chainLabel: 'Default network',
     languageLabel: 'Language',
@@ -152,18 +149,15 @@ const labels = {
   es: {
     ready: 'Listo',
     settings: 'Ajustes',
-    noKey: 'Sin key',
     keySaved: 'Key guardada',
     closeSettings: 'Cerrar ajustes',
     addressCopied: 'Address copiada',
-    pasteKey: 'Pegá una API key primero',
-    saveKey: 'Guardá una API key primero',
     analyzing: 'Analizando...',
     detected: 'Detectado',
     copied: 'Resumen copiado',
     settingsTitle: 'Ajustes',
     apiKeyLink: 'Conseguí tu API key de Etherscan acá',
-    apiKeyLabel: 'API key',
+    apiKeyLabel: 'API key (opcional, suma código de Etherscan)',
     apiKeyPlaceholder: 'Pegá tu key de Etherscan',
     chainLabel: 'Red por defecto',
     languageLabel: 'Idioma',
@@ -206,18 +200,15 @@ const labels = {
   pt: {
     ready: 'Pronto',
     settings: 'Ajustes',
-    noKey: 'Sem key',
     keySaved: 'Key salva',
     closeSettings: 'Fechar ajustes',
     addressCopied: 'Address copiado',
-    pasteKey: 'Cole uma API key primeiro',
-    saveKey: 'Salve uma API key primeiro',
     analyzing: 'Analisando...',
     detected: 'Detectado',
     copied: 'Resumo copiado',
     settingsTitle: 'Ajustes',
     apiKeyLink: 'Pegue sua API key da Etherscan aqui',
-    apiKeyLabel: 'API key',
+    apiKeyLabel: 'API key (opcional, adiciona código da Etherscan)',
     apiKeyPlaceholder: 'Cole sua key da Etherscan',
     chainLabel: 'Rede padrão',
     languageLabel: 'Idioma',
@@ -320,7 +311,7 @@ function stopLoading(): void {
 
 function setSettingsOpen(open: boolean): void {
   setupPanel.hidden = !open
-  keyState.textContent = open && settings.etherscanApiKey ? t('closeSettings') : settings.etherscanApiKey ? t('settings') : t('noKey')
+  keyState.textContent = open ? t('closeSettings') : t('settings')
   if (open) apiKeyInput.focus()
 }
 
@@ -368,10 +359,9 @@ function syncSettingsState(keepPanel = false): void {
   const chain = settings.defaultChain ?? 'mainnet'
   const language = settings.language ?? 'en'
   keyState.classList.toggle('ready', hasKey)
-  scanButton.disabled = !hasKey
   chainSelect.value = chain
   languageSelect.value = language
-  setSettingsOpen(keepPanel ? !setupPanel.hidden : !hasKey)
+  setSettingsOpen(keepPanel && !setupPanel.hidden)
   syncNetworkName()
   document.documentElement.lang = language
   document.querySelector('#settingsTitle')!.textContent = t('settingsTitle')
@@ -712,11 +702,6 @@ async function scanCurrentPage(): Promise<void> {
 }
 
 async function scanAddress(): Promise<void> {
-  if (!settings.etherscanApiKey) {
-    setStatus(t('saveKey'))
-    return
-  }
-
   const address = addressInput.value.trim()
   if (!isAddress(address) && !isTxHash(address)) {
     showError(t('invalidInput'), t('invalidInputHint'))
@@ -739,7 +724,7 @@ async function scanAddress(): Promise<void> {
     showError((error as Error).message)
   } finally {
     stopLoading()
-    scanButton.disabled = !settings.etherscanApiKey
+    scanButton.disabled = false
   }
 }
 
@@ -753,11 +738,6 @@ async function loadSettings(): Promise<void> {
 settingsForm.addEventListener('submit', async event => {
   event.preventDefault()
   const apiKey = apiKeyInput.value.trim()
-  if (!apiKey && !settings.etherscanApiKey) {
-    setStatus(t('pasteKey'))
-    return
-  }
-
   settings = {
     ...settings,
     etherscanApiKey: apiKey || settings.etherscanApiKey,
