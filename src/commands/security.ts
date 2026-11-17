@@ -4,6 +4,8 @@ import { findingLocation } from '../core/security-report.js'
 import { c } from '../output/colors.js'
 import { addressLink } from '../output/links.js'
 import { toSarif } from '../output/sarif.js'
+import { toMarkdown } from '../output/markdown.js'
+import { applyBaseline, loadBaseline, updateBaseline } from '../core/baseline.js'
 import type { Config } from '../types.js'
 
 function shortAddr(addr: string): string {
@@ -63,9 +65,10 @@ function printFindings(findings: Finding[], verbose: boolean): void {
   }
 }
 
-function printSummary(counted: Finding[]): void {
+function printSummary(counted: Finding[], ignored = 0): void {
   if (counted.length === 0) {
-    console.log(`  ${c.bold('RESULT')}  ${c.success(`No signals from ${COVERAGE.checked.length} checks.`)} ${c.muted('This is not a safety guarantee.')}`)
+    const text = ignored > 0 ? 'No new signals since the baseline.' : `No signals from ${COVERAGE.checked.length} checks.`
+    console.log(`  ${c.bold('RESULT')}  ${c.success(text)} ${c.muted('This is not a safety guarantee.')}`)
     return
   }
   const counts = (['high', 'medium', 'low'] as Severity[])
@@ -86,20 +89,37 @@ function printCoverage(scan: SecurityScan): void {
   console.log(`  ${c.dim('not checked: ' + COVERAGE.notChecked.join(', '))}`)
 }
 
+export interface SecurityOptions {
+  format?: 'text' | 'json' | 'sarif' | 'markdown'
+  failOn?: Severity
+  verbose?: boolean
+  baseline?: string  // JSON file of reviewed findings to hide
+  updateBaseline?: boolean  // add the current findings to the baseline file
+}
+
 export async function runSecurity(
   rawAddress: string,
   chainName: string,
   config: Config,
   rpcOverride?: string,
-  format: 'text' | 'json' | 'sarif' = 'text',
-  failOn?: Severity,
-  verbose = false
+  options: SecurityOptions = {}
 ): Promise<void> {
+  const { format = 'text', failOn, verbose = false } = options
   const spinner = format !== 'text' ? null : ora({ text: `  Scanning security surface for ${shortAddr(rawAddress)}...`, spinner: 'arc' }).start()
 
   try {
-    const scan = await scanSecurity(rawAddress, chainName, config, rpcOverride)
+    const fullScan = await scanSecurity(rawAddress, chainName, config, rpcOverride)
     spinner?.stop()
+    let scan = fullScan
+    let ignored = 0
+    if (options.baseline) {
+      const baseline = loadBaseline(options.baseline)
+      if (options.updateBaseline) {
+        const added = updateBaseline(options.baseline, fullScan, baseline)
+        console.error(`unffold: added ${added} finding(s) to ${options.baseline}; edit each "reason" to record why it is accepted`)
+      }
+      ;({ scan, ignored } = applyBaseline(fullScan, loadBaseline(options.baseline)))
+    }
     const failing = failOn ? scan.findings.filter(finding => atLeast(finding.severity, failOn)) : []
     if (failing.length > 0) {
       // CI gate: exit non-zero, but still print the report below
@@ -107,8 +127,12 @@ export async function runSecurity(
       console.error(`unffold: ${failing.length} finding(s) at or above --fail-on ${failOn}`)
     }
 
+    if (format === 'markdown') {
+      console.log(toMarkdown(scan, ignored))
+      return
+    }
     if (format !== 'text') {
-      console.log(JSON.stringify(format === 'sarif' ? toSarif(scan) : { ...scan, coverage: COVERAGE }, null, 2))
+      console.log(JSON.stringify(format === 'sarif' ? toSarif(scan) : { ...scan, coverage: COVERAGE, ignoredByBaseline: ignored }, null, 2))
       return
     }
 
@@ -132,13 +156,14 @@ export async function runSecurity(
     console.log(`  ${c.muted('source'.padEnd(10))}${scan.target.verified ? c.success('verified') : c.warn('unverified')}  ${c.dim(`${scan.stats.stateChanging} state-changing fns, ${scan.stats.privilegedLooking} privileged-looking`)}`)
     console.log()
 
-    printSummary(counted)
+    printSummary(counted, ignored)
     console.log()
     printFindings(counted, verbose)
     if (info.length > 0) {
       console.log()
       for (const finding of info) console.log(`  ${severityTag('info')}${c.muted(finding.title)}`)
     }
+    if (ignored > 0) console.log(`\n  ${c.dim(`${ignored} finding(s) hidden by baseline ${options.baseline}`)}`)
     console.log()
     printCoverage(scan)
     if (!verbose && counted.length > 0) console.log(`  ${c.dim('add --verbose for why each finding matters, how to verify it, and when it is a false positive')}`)

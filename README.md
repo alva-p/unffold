@@ -122,6 +122,9 @@ unffold <command> [args]
 | `--tree` | Inheritance tree + detected standards |
 | `--security` | Security surface scan: triage findings with severity, confidence and false-positive notes |
 | `--verbose` | With `--security`: explain each finding (why it matters, how to verify, false positives) |
+| `--markdown` | With `--security`: Markdown checklist report for issues and audit notes |
+| `--baseline <file>` | With `--security`: hide findings already reviewed (stable fingerprints; they return if the code changes) |
+| `--update-baseline` | With `--security --baseline`: add the current findings to the baseline file |
 | `--sarif` | With `--security`: SARIF 2.1.0 output for GitHub code scanning |
 | `--fail-on <severity>` | With `--security`: exit 1 if any finding is at or above `high`, `medium`, `low` or `info` |
 | `--read "<fn(args)>"` | Call a view function |

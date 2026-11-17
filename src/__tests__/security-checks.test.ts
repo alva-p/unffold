@@ -1,9 +1,12 @@
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { fingerprint, parseSources, runChecks, shortenPaths } from '../core/security-checks.js'
 import { findingsFor, fixture, ids } from './security-helpers.js'
 import { toSarif } from '../output/sarif.js'
+import { toMarkdown } from '../output/markdown.js'
+import { applyBaseline, loadBaseline, updateBaseline } from '../core/baseline.js'
 
 describe('surface checks', () => {
   it('flags every issue in the vulnerable fixture with file:line', async () => {
@@ -172,5 +175,41 @@ describe('detector docs', () => {
     const ids = [...new Set([...source.matchAll(/id: '([a-z-]+)'/g)].map(match => match[1]))]
     expect(ids.length).toBeGreaterThan(10)
     expect(ids.filter(id => !docs.includes(`### ${id}\n`))).toEqual([])
+  })
+})
+
+describe('baseline and markdown', () => {
+  async function fakeScan() {
+    return {
+      address: '0x0000000000000000000000000000000000000001',
+      chain: { name: 'Anvil (local)', chainId: 31337, explorerApiUrl: '', explorerUrl: '', rpcUrl: '' },
+      contract: { name: 'SurfaceVuln', verified: true },
+      target: { address: '0x0000000000000000000000000000000000000001', name: 'SurfaceVuln', verified: true, file: 'surface/Vuln.sol' },
+      proxy: null,
+      stats: { stateChanging: 0, privilegedLooking: 0 },
+      block: '1',
+      scannedAt: '2026-11-17T00:00:00.000Z',
+      control: [{ role: 'owner' as const, hops: [], summary: 'single key (EOA) · no delay', totalDelaySeconds: 0, singleKeyNoDelay: true }],
+      findings: await findingsFor(fixture('surface/Vuln.sol')),
+    }
+  }
+
+  it('hides reviewed findings and brings them back when the code changes', async () => {
+    const scan = await fakeScan()
+    const path = join(mkdtempSync(join(tmpdir(), 'unffold-')), 'baseline.json')
+    expect(updateBaseline(path, scan, loadBaseline(path))).toBe(scan.findings.length)
+    expect(applyBaseline(scan, loadBaseline(path))).toMatchObject({ ignored: scan.findings.length, scan: { findings: [] } })
+    const changed = { ...scan, findings: scan.findings.map(f => f.id === 'unprotected-privileged' ? { ...f, code: 'function setFee(uint256 fee) public {' } : f) }
+    expect(ids(applyBaseline(changed, loadBaseline(path)).scan.findings)).toEqual(['unprotected-privileged'])
+  })
+
+  it('renders a markdown checklist with control, evidence links and coverage', async () => {
+    const markdown = toMarkdown(await fakeScan(), 2)
+    expect(markdown).toContain('# Security triage: SurfaceVuln')
+    expect(markdown).toContain('- **Owner:** single key (EOA) · no delay')
+    expect(markdown.match(/^- \[ \] /gm)).toHaveLength(5)
+    expect(markdown).toContain('`surface/Vuln.sol:16`')
+    expect(markdown).toContain('_2 finding(s) hidden by the triage baseline._')
+    expect(markdown).toContain('## Not checked')
   })
 })

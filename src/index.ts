@@ -61,6 +61,9 @@ program
   .option('--security', 'Security surface scan')
   .option('--sarif', 'With --security: print SARIF 2.1.0 (for GitHub code scanning)')
   .option('--verbose', 'With --security: explain each finding (why, how to verify, false positives)')
+  .option('--markdown', 'With --security: print a Markdown checklist report')
+  .option('--baseline <file>', 'With --security: hide findings recorded in this triage baseline file')
+  .option('--update-baseline', 'With --security --baseline: add the current findings to the baseline file')
   .option('--fail-on <severity>', 'With --security: exit 1 if any finding is at or above high|medium|low|info')
   .option('--watch <event>', 'Watch contract events live')
   .option('--storage <slot>', 'Read a storage slot or variable name')
@@ -80,6 +83,9 @@ program
     security?: boolean
     sarif?: boolean
     verbose?: boolean
+    markdown?: boolean
+    baseline?: string
+    updateBaseline?: boolean
     failOn?: string
     watch?: string
     storage?: string
@@ -91,7 +97,7 @@ program
     const isJson = options.json === true
     const isQuiet = options.quiet === true
 
-    if (!isJson && !isQuiet && options.sarif !== true) printBanner()
+    if (!isJson && !isQuiet && options.sarif !== true && options.markdown !== true) printBanner()
 
     const config = loadConfig()
     const chain = options.chain ?? config.defaultChain ?? 'mainnet'
@@ -116,7 +122,13 @@ program
         console.error(c.danger(`\n  Invalid --fail-on: "${failOn}". Use one of: ${SEVERITIES.join(', ')}\n`))
         process.exit(1)
       }
-      await runSecurity(address, chain, config, options.rpc, options.sarif ? 'sarif' : isJson ? 'json' : 'text', failOn, options.verbose === true)
+      await runSecurity(address, chain, config, options.rpc, {
+        format: options.sarif ? 'sarif' : options.markdown ? 'markdown' : isJson ? 'json' : 'text',
+        failOn,
+        verbose: options.verbose === true,
+        baseline: options.baseline,
+        updateBaseline: options.updateBaseline === true,
+      })
       return
     }
     if (options.watch)   { await runWatch(address, options.watch, chain, config, options.rpc); return }
