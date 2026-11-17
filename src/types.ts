@@ -3,6 +3,8 @@ export interface ResolvedContract {
   chainId: number
   name: string
   sourceCode: string | null
+  // path -> content, kept per file so findings can point at file:line
+  sources?: Record<string, string>
   abi: AbiItem[] | null
   compilerVersion: string | null
   optimizationEnabled: boolean | null

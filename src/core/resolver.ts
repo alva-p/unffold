@@ -21,6 +21,25 @@ async function fetchWithRetry(url: string, retries = 3): Promise<unknown> {
   return null
 }
 
+function joinSources(sources: Record<string, string>): string | null {
+  return Object.values(sources).join('\n\n') || null
+}
+
+// Etherscan SourceCode is either a single flattened file, `{{standard-json}}`,
+// `{standard-json}`, or `{"File.sol": {content}}` (older multi-file format).
+function etherscanSources(raw: string, contractName: string): Record<string, string> {
+  if (!raw) return {}
+  if (raw.startsWith('{')) {
+    try {
+      const inner = JSON.parse(raw.startsWith('{{') ? raw.slice(1, -1) : raw)
+      const files = (inner.sources ?? inner) as Record<string, { content?: string }>
+      const entries = Object.entries(files).filter(([, file]) => typeof file?.content === 'string')
+      if (entries.length > 0) return Object.fromEntries(entries.map(([path, file]) => [path, file.content!]))
+    } catch { /* not JSON: treat as a flattened file */ }
+  }
+  return { [`${contractName || 'Contract'}.sol`]: raw }
+}
+
 async function fetchFromEtherscan(
   address: string,
   chainName: string,
@@ -59,24 +78,13 @@ async function fetchFromEtherscan(
   let abi: AbiItem[] | null = null
   try { abi = JSON.parse(r.ABI) } catch { abi = null }
 
-  let sourceCode = r.SourceCode || null
-  if (sourceCode?.startsWith('{{')) {
-    try {
-      const inner = JSON.parse(sourceCode.slice(1, -1))
-      const sources = inner.sources as Record<string, { content: string }>
-      sourceCode = Object.values(sources).map(s => s.content).join('\n\n')
-    } catch { /* keep raw */ }
-  } else if (sourceCode?.startsWith('{')) {
-    try {
-      const inner = JSON.parse(sourceCode)
-      const sources = inner.sources as Record<string, { content: string }>
-      sourceCode = Object.values(sources).map(s => s.content).join('\n\n')
-    } catch { /* keep raw */ }
-  }
+  const sources = etherscanSources(r.SourceCode, r.ContractName)
+  const sourceCode = joinSources(sources)
 
   return {
     name: r.ContractName || 'Unknown',
     sourceCode,
+    sources,
     abi,
     compilerVersion: r.CompilerVersion?.replace('v', '') || null,
     optimizationEnabled: r.OptimizationUsed === '1',
@@ -100,11 +108,12 @@ async function fetchFromSourcify(
 
   if (!data) return null
 
-  const sources = data.sources || {}
-  const sourceCode = Object.values(sources)
-    .map(s => s.content)
-    .filter(Boolean)
-    .join('\n\n') || null
+  const sources = Object.fromEntries(
+    Object.entries(data.sources || {})
+      .filter(([, file]) => file?.content)
+      .map(([path, file]) => [path, file.content])
+  )
+  const sourceCode = joinSources(sources)
 
   const compilation = data.compilation || {}
   const optimizer = compilation.compilerSettings?.optimizer
@@ -112,6 +121,7 @@ async function fetchFromSourcify(
   return {
     name: compilation.name || 'Unknown',
     sourceCode,
+    sources,
     abi: data.abi || null,
     compilerVersion: compilation.compilerVersion || null,
     optimizationEnabled: optimizer?.enabled ?? null,
