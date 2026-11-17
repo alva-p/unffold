@@ -12,7 +12,7 @@ export function printBanner(): void {
  ░░████████ ████ █████  █████      █████    ░░██████  █████░░████████
   ░░░░░░░░ ░░░░ ░░░░░  ░░░░░      ░░░░░      ░░░░░░  ░░░░░  ░░░░░░░░`)
   console.log(art)
-  console.log(`\n  ${c.muted('contract explorer')} ${c.bold('v0.1.0')}`)
+  console.log(`\n  ${c.muted('contract explorer')} ${c.bold(`v${__VERSION__}`)}`)
   console.log(`  ${c.dim('by alva-p · https://github.com/alva-p/unffold')}`)
   console.log()
 }

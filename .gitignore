@@ -7,3 +7,5 @@ mejoras.md
 unffold-extension-*.zip
 test/fixtures/out/
 test/fixtures/cache/
+releases/
+unffold-extension-*/
