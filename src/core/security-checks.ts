@@ -215,6 +215,8 @@ const detectAccessControl: Detector = contracts => {
       if (!fn.name || fn.isConstructor || fn.isFallback || fn.isReceiveEther || !fn.body) continue
       if (fn.visibility === 'internal' || fn.visibility === 'private') continue
       if (fn.stateMutability === 'view' || fn.stateMutability === 'pure' || fn.stateMutability === 'constant') continue
+      // admin functions are not payable; a payable mint is the public sale
+      if (fn.stateMutability === 'payable') continue
       if (!looksPrivileged(fn.name)) continue
       if (fn.modifiers.some(modifier => GUARD_MODIFIER.test(modifier.name))) continue
       if (hasAuthInBody(fn) || callsAuthHelper(contract, fn)) continue
@@ -494,12 +496,19 @@ function handedOff(fn: FunctionDefinition, name: string): boolean {
 // ── transferFrom with a caller-chosen `from` ────────────────────────────────
 
 // The `from` argument of token.transferFrom(from,…), token.safeTransferFrom(from,…) or SafeERC20.safeTransferFrom(token, from,…).
-function transferFromSource(call: FunctionCall): ASTNode | null {
+// The `from` argument of token.transferFrom(from,…), token.safeTransferFrom(from,…) or a library call
+// SafeERC20.safeTransferFrom(token, from,…). Calls on super or a parent contract (ERC721.transferFrom(from,…))
+// run the inherited implementation, which checks approval itself.
+function transferFromSource(call: FunctionCall, libraries: Set<string>): ASTNode | null {
   const callee = call.expression
   if (callee.type !== 'MemberAccess' || !/^(safeT|t)ransferFrom$/.test(callee.memberName)) return null
-  // Library form (SafeERC20, TransferHelper…): called on a capitalized name, token first. ERC-721 `nft.safeTransferFrom(from, to, id, data)` is member form.
-  const library = callee.expression.type === 'Identifier' && /^[A-Z]/.test(callee.expression.name) && call.arguments.length === 4
-  return (library ? call.arguments[1] : call.arguments[0]) ?? null
+  const target = callee.expression.type === 'Identifier' ? callee.expression.name : null
+  if (target === 'super') return null
+  // known library, or an unknown capitalized name used library-style (token first, 4 args)
+  const library = target !== null && (libraries.has(target) || (/^[A-Z]/.test(target) && call.arguments.length === 4 && !libraries.size))
+  if (library) return call.arguments[1] ?? null
+  if (target !== null && /^[A-Z]/.test(target)) return null  // parent contract
+  return call.arguments[0] ?? null
 }
 
 // Who `from` is allowed to be: compared with something, or used as an allowance key next to msg.sender.
@@ -519,6 +528,7 @@ function fromIsChecked(fn: FunctionDefinition, name: string): boolean {
 
 const detectArbitraryTransferFrom: Detector = contracts => {
   const out: Finding[] = []
+  const libraries = new Set(contracts.filter(contract => contract.node.kind === 'library').map(contract => contract.node.name))
   for (const contract of reportable(contracts)) {
     for (const fn of functionsOf(contract)) {
       if (!fn.body || !['external', 'public'].includes(fn.visibility)) continue
@@ -526,7 +536,7 @@ const detectArbitraryTransferFrom: Detector = contracts => {
       const params = new Set(fn.parameters.map(param => param.name).filter(Boolean))
       visit(fn.body, {
         FunctionCall(call) {
-          const from = transferFromSource(call)
+          const from = transferFromSource(call, libraries)
           if (!from || from.type !== 'Identifier' || !params.has(from.name) || fromIsChecked(fn, from.name)) return
           out.push({
             id: 'arbitrary-transfer-from',
