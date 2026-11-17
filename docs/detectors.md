@@ -85,6 +85,13 @@ When the address is a proxy, unffold analyzes the **implementation** behind it. 
 **How to verify:** check what happens to state when the call fails.
 **False positive when:** the call is deliberately best-effort (refunds, keeper tips).
 
+### arbitrary-transfer-from
+
+**Detects:** an external/public function without access control calls `transferFrom` / `safeTransferFrom` (including `SafeERC20.safeTransferFrom`) with a `from` taken straight from its parameters, and never compares `from` with anything, uses it as an allowance key with `msg.sender`, or verifies a permit or signature.
+**Why it matters:** anyone may be able to move tokens out of every address that approved this contract. This is one of the most common causes of approval drains.
+**How to verify:** read the function and its callers: can an attacker pass a victim's address as `from`?
+**False positive when:** the check lives in a helper or modifier with an unrecognized name, or only trusted callers can reach it.
+
 ### oracle-stale-price
 
 **Detects:** Chainlink `latestRoundData()` where `updatedAt` is discarded, or never compared with `block.timestamp`.

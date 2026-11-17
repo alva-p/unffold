@@ -228,3 +228,14 @@ describe('uups-no-upgrade-function', () => {
     expect(ids(await runChecks({ sources: frozen, proxy: { ...uups, pattern: 'Transparent (EIP-1967)' } }))).not.toContain('uups-no-upgrade-function')
   })
 })
+
+describe('arbitrary-transfer-from', () => {
+  it('flags caller-chosen `from` in member and SafeERC20 library calls', async () => {
+    const findings = (await findingsFor(fixture('transfer-from/Vuln.sol'))).filter(f => f.id === 'arbitrary-transfer-from')
+    expect(findings.map(f => f.line)).toEqual([17, 22])
+  })
+
+  it('stays quiet for msg.sender, comparisons, allowances, permit, guards and internal helpers', async () => {
+    expect(ids(await findingsFor(fixture('transfer-from/Safe.sol')))).not.toContain('arbitrary-transfer-from')
+  })
+})
