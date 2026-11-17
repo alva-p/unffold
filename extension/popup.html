@@ -145,10 +145,16 @@
               <span id="riskIcon" class="riskIcon" aria-hidden="true">✓</span>
               <strong id="riskTitle">Why this looks safer</strong>
             </div>
+            <p id="riskAction" class="riskAction"></p>
             <p id="riskSummary"></p>
           </div>
 
           <div id="badges" class="badges"></div>
+
+          <section id="controlSection" class="controlSection" hidden>
+            <h3 id="controlTitle">Who controls</h3>
+            <dl id="controlList"></dl>
+          </section>
 
           <section class="warningSection">
             <div class="contentHeader">
@@ -158,6 +164,7 @@
             </div>
             <div id="warnings" class="warnings"></div>
             <button id="showMoreWarnings" class="showMoreButton" type="button" hidden></button>
+            <a id="reportVerdict" class="reportVerdict" href="#" target="_blank" rel="noreferrer">Wrong verdict? Report it</a>
           </section>
 
           <details class="technicalDetails">
@@ -176,6 +183,7 @@
         </footer>
       </section>
 
+      <p id="privacyNote" class="privacyNote"></p>
       <footer class="credit">
         <span>Made by alva-p</span>
         <a href="https://x.com/pimmpi_" target="_blank" rel="noreferrer" aria-label="X">X</a>

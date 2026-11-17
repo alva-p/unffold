@@ -1,0 +1,5 @@
+# Compiles the on-chain fixtures deployed by *.anvil.test.ts to a throwaway local Anvil node.
+[profile.default]
+src = "."
+out = "out"
+cache_path = "cache"

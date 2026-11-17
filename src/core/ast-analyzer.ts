@@ -149,7 +149,8 @@ export function analyzeSource(sourceCode: string | null | undefined): AstAnalysi
           name: v.name,
           type: typeOf(v.typeName),
           visibility: typeof v.visibility === 'string' ? v.visibility : null,
-          slot: stateSlot++,
+          // constants and immutables live in bytecode, not storage
+          slot: v.isDeclaredConst === true || v.isImmutable === true ? undefined : stateSlot++,
         })
       }
     },

@@ -980,3 +980,73 @@ dd {
     transition: none !important;
   }
 }
+
+/* "Couldn't verify": missing data is grey, never green or red */
+.riskPill.unknown {
+  border-color: rgba(138, 145, 157, .32);
+  background: rgba(138, 145, 157, .1);
+  color: var(--soft);
+}
+
+.riskCallout.unknown { border-color: rgba(138, 145, 157, .22); }
+.riskCallout.unknown .riskIcon { background: var(--muted); color: #111; }
+
+.riskAction {
+  margin-bottom: 6px;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.warning .warningLabel {
+  display: block;
+  color: var(--faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+.warning .evidence {
+  color: var(--faint);
+  font: 10.5px/1.5 ui-monospace, Menlo, monospace;
+  white-space: pre-line;
+  word-break: break-all;
+}
+
+.warning .warningLinks a { color: var(--accent-soft); text-decoration: none; }
+
+.privacyNote {
+  margin: 0;
+  padding: 6px 13px;
+  border-top: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.controlSection { margin: 0 13px 14px; }
+.controlSection[hidden] { display: none; }
+.controlSection h3 {
+  margin: 0 0 6px;
+  color: var(--faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.controlSection dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0; }
+.controlSection dt { color: var(--muted); font-size: 12px; }
+.controlSection dd { margin: 0; color: var(--soft); font-family: inherit; font-size: 12px; line-height: 1.45; text-align: left; }
+.controlSection dd.singleKey { color: #e6b543; }
+
+.reportVerdict {
+  display: block;
+  margin: 10px 13px 0;
+  color: var(--faint);
+  font-size: 11px;
+  text-decoration: none;
+}
+.reportVerdict:hover { color: var(--accent-soft); }

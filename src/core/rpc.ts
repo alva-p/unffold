@@ -11,6 +11,7 @@ import {
   zkSync,
   sepolia,
   holesky,
+  foundry,
 } from 'viem/chains'
 import type { ChainConfig, Config } from '../types.js'
 
@@ -92,6 +93,13 @@ export const CHAINS: Record<string, ChainConfig> = {
     explorerUrl: 'https://holesky.etherscan.io/address/',
     rpcUrl: 'https://ethereum-holesky-rpc.publicnode.com',
   },
+  anvil: {
+    name: 'Anvil (local)',
+    chainId: 31337,
+    explorerApiUrl: '',
+    explorerUrl: '',
+    rpcUrl: 'http://127.0.0.1:8545',
+  },
 }
 
 const VIEM_CHAINS: Record<number, typeof mainnet> = {
@@ -106,6 +114,7 @@ const VIEM_CHAINS: Record<number, typeof mainnet> = {
   324: zkSync as unknown as typeof mainnet,
   11155111: sepolia as unknown as typeof mainnet,
   17000: holesky as unknown as typeof mainnet,
+  31337: foundry as unknown as typeof mainnet,
 }
 
 export function createClient(chainName: string, config: Config, rpcOverride?: string): PublicClient {

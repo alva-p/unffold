@@ -1,4 +1,5 @@
 import type { AbiItem, DetectedStandards, ProxyInfo, ResolvedContract } from '../types.js'
+import { impersonatedToken, knownToken } from './known-tokens.js'
 
 export type RiskSeverity = 'ok' | 'info' | 'medium' | 'high'
 export type OverallRisk = 'low' | 'medium' | 'high'
@@ -178,8 +179,8 @@ function mainRiskSignal(signals: RiskSignal[]): RiskSignal | null {
 
 function summaryFor(overall: OverallRisk, mainReason: string): string {
   if (overall === 'high') return `High risk: ${mainReason}`
-  if (overall === 'medium') return `Medium risk: ${mainReason}`
-  return 'Low risk: no major red flags were detected by the quick scan.'
+  if (overall === 'medium') return `Review needed: ${mainReason}`
+  return 'No red flags found by the quick scan. This is not a safety guarantee.'
 }
 
 function badgesFor(standards: string[], proxy: ProxyInfo | null, contract: ResolvedContract): string[] {
@@ -221,10 +222,77 @@ export function standardsToRiskLabels(standards: DetectedStandards): string[] {
   return labels
 }
 
+// Current on-chain state, to separate what the contract *can* do from what is happening now.
+export interface CurrentState {
+  owner?: string | null
+  paused?: boolean | null
+  symbol?: string | null
+}
+
+const ISSUER_CONTROLS = new Set(['upgradeable', 'admin-roles', 'mint-controls', 'pause-controls', 'blacklist-controls'])
+
+// Known issuers keep their facts but as trust assumptions; symbol copies at other addresses are flagged.
+function applyIssuerContext(signals: SignalInput[], contract: ResolvedContract, symbol?: string | null): string | null {
+  const known = knownToken(contract.chainId, contract.address)
+  if (known) {
+    for (const signal of signals) {
+      if (!ISSUER_CONTROLS.has(signal.id)) continue
+      signal.severity = 'info'
+      signal.detail = `Expected issuer control. ${signal.detail}`
+    }
+    signals.push({
+      id: 'known-issuer',
+      label: `Official ${known.symbol} by ${known.issuer}`,
+      severity: 'medium',
+      detail: `${known.issuer} can ${known.powers}. This is expected for a regulated stablecoin: holding it means trusting the issuer.`,
+      meaning: `This is the official ${known.symbol} contract on this network.`,
+      whyItMatters: `${known.issuer} can ${known.powers}. Expected for a regulated stablecoin, but you are trusting the issuer.`,
+      recommendation: `Treat these as issuer powers, not a scam signal. Read ${known.issuer}'s terms if freezes matter to you.`,
+    })
+    return known.issuer
+  }
+  const copy = impersonatedToken(contract.chainId, contract.address, symbol)
+  if (copy) {
+    signals.push({
+      id: 'impersonation',
+      label: `Not the official ${copy.token.symbol} on this network`,
+      severity: 'high',
+      detail: `Official ${copy.token.symbol} (${copy.token.issuer}) here is ${copy.official}.`,
+      meaning: `This token uses the ${copy.token.symbol} symbol but is not ${copy.token.issuer}'s contract.`,
+      whyItMatters: `Scam tokens copy well-known symbols to look legitimate. Bridged versions also exist, but they are not ${copy.token.issuer}'s official token.`,
+      recommendation: `Compare with the official address ${copy.official} before accepting or buying it.`,
+    })
+  }
+  return null
+}
+
+const OWNER_CONTROLS = new Set(['mint-controls', 'pause-controls', 'blacklist-controls', 'tax-controls', 'trading-gates'])
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+
+function applyCurrentState(signals: SignalInput[], standards: DetectedStandards, state: CurrentState): void {
+  // ponytail: assumes the controls are owner-gated; role- or mapping-gated minters stay live after renounce
+  const renounced = state.owner === ZERO_ADDRESS && !standards.accessControl
+  for (const signal of signals) {
+    if (renounced && OWNER_CONTROLS.has(signal.id)) {
+      signal.severity = 'info'
+      signal.detail += '. The owner is renounced (0x0), so owner-only controls can no longer be used.'
+    }
+  }
+  const pause = signals.find(signal => signal.id === 'pause-controls')
+  if (pause && state.paused === true) {
+    pause.severity = 'high'
+    pause.label = 'Transfers are paused right now'
+    pause.detail = `paused() returns true. ${pause.detail}`
+  } else if (pause && state.paused === false) {
+    pause.detail += '. Not paused right now.'
+  }
+}
+
 export function buildRiskSummary(
   contract: ResolvedContract,
   proxy: ProxyInfo | null,
-  standards: DetectedStandards
+  standards: DetectedStandards,
+  state?: CurrentState
 ): RiskSummary {
   const abi = contract.abi ?? []
   const source = contract.sourceCode ?? ''
@@ -235,8 +303,9 @@ export function buildRiskSummary(
     signals.push({
       id: 'unverified-source',
       label: 'Source not verified',
-      severity: 'high',
-      detail: 'ABI/source may be incomplete, so admin and token controls are harder to inspect.',
+      // missing data is "review needed", never red: we could not check, we did not find something bad
+      severity: 'medium',
+      detail: 'Could not inspect the code: admin and token controls below may be incomplete.',
     })
   } else {
     signals.push({
@@ -270,9 +339,9 @@ export function buildRiskSummary(
   if (controls.mint.length > 0 && !standards.erc4626) {
     signals.push({
       id: 'mint-controls',
-      label: 'Mint controls',
+      label: 'Can mint new supply',
       severity: 'high',
-      detail: `Detected: ${controls.mint.join(', ')}`,
+      detail: `Functions: ${controls.mint.join(', ')}`,
     })
   }
 
@@ -288,36 +357,36 @@ export function buildRiskSummary(
   if (controls.pause.length > 0) {
     signals.push({
       id: 'pause-controls',
-      label: 'Pause controls',
+      label: 'Can pause transfers',
       severity: 'medium',
-      detail: `Detected: ${controls.pause.join(', ')}`,
+      detail: `Functions: ${controls.pause.join(', ')}`,
     })
   }
 
   if (controls.blacklist.length > 0) {
     signals.push({
       id: 'blacklist-controls',
-      label: 'Blacklist / denylist controls',
+      label: 'Can block addresses',
       severity: 'high',
-      detail: `Detected: ${controls.blacklist.join(', ')}`,
+      detail: `Functions: ${controls.blacklist.join(', ')}`,
     })
   }
 
   if (controls.tax.length > 0) {
     signals.push({
       id: 'tax-controls',
-      label: 'Tax / fee controls',
+      label: 'Fees can be changed',
       severity: 'medium',
-      detail: `Detected: ${controls.tax.join(', ')}`,
+      detail: `Functions: ${controls.tax.join(', ')}`,
     })
   }
 
   if (controls.tradingGate.length > 0) {
     signals.push({
       id: 'trading-gates',
-      label: 'Trading gates / limits',
+      label: 'Trading can be limited',
       severity: 'medium',
-      detail: `Detected: ${controls.tradingGate.join(', ')}`,
+      detail: `Functions: ${controls.tradingGate.join(', ')}`,
     })
   }
 
@@ -348,6 +417,8 @@ export function buildRiskSummary(
     })
   }
 
+  if (state) applyCurrentState(signals, standards, state)
+  const issuer = applyIssuerContext(signals, contract, state?.symbol)
   const enrichedSignals = signals.map(enrichSignal)
   const overall = maxRisk(enrichedSignals)
   const score = riskScore(enrichedSignals)
@@ -360,7 +431,7 @@ export function buildRiskSummary(
     score,
     mainReason,
     summary: summaryFor(overall, mainReason),
-    badges: badgesFor(standardsLabels, proxy, contract),
+    badges: [...badgesFor(standardsLabels, proxy, contract), ...(issuer ? [`Known issuer: ${issuer}`] : [])],
     verified: contract.isVerified,
     proxy: {
       detected: Boolean(proxy),

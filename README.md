@@ -91,12 +91,12 @@ After the fingerprint, `unffold` drops into an interactive menu so you can keep 
 ## CLI Features
 
 - **Fingerprint** — name, standards (ERC-20, ERC-721, ERC-4626 …), compiler, license, balance, total supply
-- **Proxy analysis** — detects EIP-1967 Transparent, UUPS, Beacon, Diamond, Minimal Proxy; shows implementation address, admin, and upgrade history
+- **Proxy analysis** — detects EIP-1967 Transparent, UUPS, Beacon, Diamond, Minimal Proxy, EIP-897 (Aragon AppProxy, e.g. Lido); shows implementation address, admin, and upgrade history
 - **Diff** — compare ABI and storage layout between two contracts or two proxy implementations
 - **Diamond facets** — enumerate all EIP-2535 facets and map selectors to function names
 - **Trace** — decode calldata and events from any transaction; auto-resolves proxy implementation ABIs
 - **Inheritance tree** — full parent chain parsed from Solidity source
-- **Security surface** — upgradeability, `selfdestruct`, `tx.origin`, `delegatecall`, reentrancy guards, unprotected privileged functions
+- **Security triage** — upgradeability, access control, UUPS upgrade authorization, initializer state (read on-chain), unchecked low-level calls, Chainlink oracle checks. Each finding has severity, confidence, `file:line`, on-chain evidence and false-positive notes ([detector docs](docs/detectors.md)). Triage signals to verify, not a safety guarantee
 - **Read state** — call any `view` function by name with arguments
 - **Watch events** — stream decoded events live to the terminal
 - **Inspect storage** — read any slot by index, variable name, or mapping key
@@ -120,7 +120,13 @@ unffold <command> [args]
 | `--simple` | Print a short non-technical summary |
 | `--proxy` | Proxy analysis + upgrade history |
 | `--tree` | Inheritance tree + detected standards |
-| `--security` | Security surface scan |
+| `--security` | Security surface scan: triage findings with severity, confidence and false-positive notes |
+| `--verbose` | With `--security`: explain each finding (why it matters, how to verify, false positives) |
+| `--markdown` | With `--security`: Markdown checklist report for issues and audit notes |
+| `--baseline <file>` | With `--security`: hide findings already reviewed (stable fingerprints; they return if the code changes) |
+| `--update-baseline` | With `--security --baseline`: add the current findings to the baseline file |
+| `--sarif` | With `--security`: SARIF 2.1.0 output for GitHub code scanning |
+| `--fail-on <severity>` | With `--security`: exit 1 if any finding is at or above `high`, `medium`, `low` or `info` |
 | `--read "<fn(args)>"` | Call a view function |
 | `--watch <event\|all>` | Stream live events |
 | `--storage <slot\|name\|mapping>` | Read a storage slot |
@@ -128,6 +134,17 @@ unffold <command> [args]
 | `--output <path>` | Destination directory for `--export` |
 | `--facets` | Enumerate Diamond (EIP-2535) facets |
 | `--json` | Machine-readable output, no banner or menu |
+
+#### Monitoring upgrades (cron / CI)
+
+Accept the current findings once, then re-run on a schedule. Fingerprints include the implementation address, so after an upgrade (or a new single-key admin) the findings come back and the command exits 1:
+
+```bash
+unffold <proxy> --security --baseline unffold-baseline.json --update-baseline   # once, then edit each "reason"
+unffold <proxy> --security --baseline unffold-baseline.json --fail-on low --quiet || notify "proxy changed"
+```
+
+`unffold <proxy> --proxy` prints the upgrade history and the `unffold diff` command for the last upgrade.
 
 ### Commands
 

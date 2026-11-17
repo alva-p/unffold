@@ -15,8 +15,9 @@
     "build": "tsup",
     "build:extension": "TARGET=extension tsup --config tsup.config.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.extension.json",
-    "test": "vitest run src/__tests__/standards.test.ts src/__tests__/storage-layout.test.ts src/__tests__/ast-analyzer.test.ts src/__tests__/read-parser.test.ts src/__tests__/risk-summary.test.ts src/__tests__/profile-report.test.ts src/__tests__/analyzer.test.ts src/__tests__/game-profile.test.ts",
+    "test": "vitest run --exclude src/__tests__/smoke.test.ts --exclude '**/*.anvil.test.ts'",
     "test:smoke": "vitest run src/__tests__/smoke.test.ts",
+    "test:anvil": "vitest run anvil.test",
     "dev": "npx ts-node src/index.ts",
     "start": "node dist/index.cjs"
   },

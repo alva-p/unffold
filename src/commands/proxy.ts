@@ -34,7 +34,7 @@ export async function runProxy(
 
   try {
     const result = await analyzeProxyProfile(rawAddress, chainName, config, rpcOverride)
-    const { report, proxy, history } = result
+    const { report, proxy, history, historyAvailable } = result
     const address = report.address
     const risk = report.risk
     const explorerBase = report.links.find(link => link.label === 'Explorer')?.url.replace(address, '') ?? ''
@@ -61,16 +61,21 @@ export async function runProxy(
     console.log()
     console.log(`  ${c.bold('RISK SUMMARY')}`)
     console.log(`  ${c.muted('overall')}  ${risk.level === 'high' ? c.danger('high') : c.warn(risk.level)}`)
-    console.log(`  ${c.muted('score')}    ${risk.score}/100`)
     console.log(`  ${c.muted('reason')}   ${risk.mainReason}`)
 
     console.log()
     console.log(`  ${c.bold('UPGRADE HISTORY')}`)
-    if (history.length === 0) {
+    if (!historyAvailable) {
+      console.log(`  ${c.muted('Unavailable: the RPC limits log ranges. Add an Etherscan key (unffold config init) to load it.')}`)
+    } else if (history.length === 0) {
       console.log(`  ${c.muted('No Upgraded(address) logs found from block 0.')}`)
     } else {
       for (const entry of history.slice(-8).reverse()) {
         console.log(`  ${c.muted(entry.blockNumber.padEnd(10))} ${linkedAddress(entry.address, explorerBase)}`)
+      }
+      if (history.length > 1) {
+        const [previous, latest] = history.slice(-2)
+        console.log(`  ${c.dim(`what changed in the last upgrade: unffold diff ${previous.address} ${latest.address} --chain ${chainName}`)}`)
       }
     }
 

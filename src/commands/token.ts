@@ -24,8 +24,8 @@ function makeTable(): Table.Table {
 }
 
 function riskLabel(risk: OverallRisk): string {
-  if (risk === 'low') return c.success('low')
-  if (risk === 'medium') return c.warn('medium')
+  if (risk === 'low') return c.success('no red flags found')
+  if (risk === 'medium') return c.warn('review needed')
   return c.danger('high')
 }
 
@@ -81,11 +81,18 @@ export async function runToken(
     if (metadata.owner) identity.push([c.muted('owner'), c.address(addressLink(shortAddr(metadata.owner), metadata.owner, explorerBase))])
     console.log(identity.toString())
 
+    if (result.report.control?.length) {
+      console.log()
+      console.log(`  ${c.bold('WHO CONTROLS')}`)
+      for (const path of result.report.control) {
+        console.log(`  ${c.muted(path.role.padEnd(10))}${path.singleKey ? c.warn(path.summary) : path.summary}`)
+      }
+    }
+
     console.log()
     console.log(`  ${c.bold('RISK SUMMARY')}`)
     const summaryTable = makeTable()
     summaryTable.push([c.muted('overall'), riskLabel(riskSummary.overall)])
-    summaryTable.push([c.muted('score'), `${riskSummary.score}/100`])
     summaryTable.push([c.muted('summary'), riskSummary.summary])
     summaryTable.push([c.muted('main reason'), riskSummary.mainReason])
     summaryTable.push([c.muted('proxy'), riskSummary.proxy.detected ? c.warn(riskSummary.proxy.pattern ?? 'detected') : c.success('not detected')])
