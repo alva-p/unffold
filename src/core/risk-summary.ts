@@ -221,10 +221,39 @@ export function standardsToRiskLabels(standards: DetectedStandards): string[] {
   return labels
 }
 
+// Current on-chain state, to separate what the contract *can* do from what is happening now.
+export interface CurrentState {
+  owner?: string | null
+  paused?: boolean | null
+}
+
+const OWNER_CONTROLS = new Set(['mint-controls', 'pause-controls', 'blacklist-controls', 'tax-controls', 'trading-gates'])
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+
+function applyCurrentState(signals: SignalInput[], standards: DetectedStandards, state: CurrentState): void {
+  // ponytail: assumes the controls are owner-gated; role- or mapping-gated minters stay live after renounce
+  const renounced = state.owner === ZERO_ADDRESS && !standards.accessControl
+  for (const signal of signals) {
+    if (renounced && OWNER_CONTROLS.has(signal.id)) {
+      signal.severity = 'info'
+      signal.detail += '. The owner is renounced (0x0), so owner-only controls can no longer be used.'
+    }
+  }
+  const pause = signals.find(signal => signal.id === 'pause-controls')
+  if (pause && state.paused === true) {
+    pause.severity = 'high'
+    pause.label = 'Transfers are paused right now'
+    pause.detail = `paused() returns true. ${pause.detail}`
+  } else if (pause && state.paused === false) {
+    pause.detail += '. Not paused right now.'
+  }
+}
+
 export function buildRiskSummary(
   contract: ResolvedContract,
   proxy: ProxyInfo | null,
-  standards: DetectedStandards
+  standards: DetectedStandards,
+  state?: CurrentState
 ): RiskSummary {
   const abi = contract.abi ?? []
   const source = contract.sourceCode ?? ''
@@ -271,9 +300,9 @@ export function buildRiskSummary(
   if (controls.mint.length > 0 && !standards.erc4626) {
     signals.push({
       id: 'mint-controls',
-      label: 'Mint controls',
+      label: 'Can mint new supply',
       severity: 'high',
-      detail: `Detected: ${controls.mint.join(', ')}`,
+      detail: `Functions: ${controls.mint.join(', ')}`,
     })
   }
 
@@ -289,36 +318,36 @@ export function buildRiskSummary(
   if (controls.pause.length > 0) {
     signals.push({
       id: 'pause-controls',
-      label: 'Pause controls',
+      label: 'Can pause transfers',
       severity: 'medium',
-      detail: `Detected: ${controls.pause.join(', ')}`,
+      detail: `Functions: ${controls.pause.join(', ')}`,
     })
   }
 
   if (controls.blacklist.length > 0) {
     signals.push({
       id: 'blacklist-controls',
-      label: 'Blacklist / denylist controls',
+      label: 'Can block addresses',
       severity: 'high',
-      detail: `Detected: ${controls.blacklist.join(', ')}`,
+      detail: `Functions: ${controls.blacklist.join(', ')}`,
     })
   }
 
   if (controls.tax.length > 0) {
     signals.push({
       id: 'tax-controls',
-      label: 'Tax / fee controls',
+      label: 'Fees can be changed',
       severity: 'medium',
-      detail: `Detected: ${controls.tax.join(', ')}`,
+      detail: `Functions: ${controls.tax.join(', ')}`,
     })
   }
 
   if (controls.tradingGate.length > 0) {
     signals.push({
       id: 'trading-gates',
-      label: 'Trading gates / limits',
+      label: 'Trading can be limited',
       severity: 'medium',
-      detail: `Detected: ${controls.tradingGate.join(', ')}`,
+      detail: `Functions: ${controls.tradingGate.join(', ')}`,
     })
   }
 
@@ -349,6 +378,7 @@ export function buildRiskSummary(
     })
   }
 
+  if (state) applyCurrentState(signals, standards, state)
   const enrichedSignals = signals.map(enrichSignal)
   const overall = maxRisk(enrichedSignals)
   const score = riskScore(enrichedSignals)

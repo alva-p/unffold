@@ -103,6 +103,19 @@ async function readOwner(client: ReturnType<typeof createClient>, address: strin
   }
 }
 
+async function readPaused(client: ReturnType<typeof createClient>, address: string): Promise<boolean | null> {
+  try {
+    const value = await client.readContract({
+      address: address as `0x${string}`,
+      abi: [{ type: 'function', name: 'paused', inputs: [], outputs: [{ name: '', type: 'bool' }], stateMutability: 'view' }],
+      functionName: 'paused',
+    })
+    return typeof value === 'boolean' ? value : null
+  } catch {
+    return null
+  }
+}
+
 async function readTokenMetadata(client: ReturnType<typeof createClient>, address: string): Promise<TokenMetadata> {
   const [name, symbol, decimals, owner] = await Promise.all([
     readString(client, address, 'name'),
@@ -132,11 +145,12 @@ export async function analyzeTokenProfile(
   const client = createClient(chainName, config, rpcOverride)
   const contract = await resolveContract(address, chainName, config)
   const proxy = await resolveProxyChain(address, contract.abi, client)
-  const [metadata, implementation] = await Promise.all([
+  const [metadata, implementation, paused] = await Promise.all([
     readTokenMetadata(client, address),
     proxy && proxy.implementationAddress !== address
       ? resolveContract(proxy.implementationAddress, chainName, config).catch(() => null)
       : Promise.resolve(null),
+    readPaused(client, address),
   ])
   const analysisContract = implementation
     ? {
@@ -149,7 +163,7 @@ export async function analyzeTokenProfile(
       }
     : contract
   const standards = detectStandards(analysisContract.abi || [], analysisContract.sourceCode)
-  const riskSummary = buildRiskSummary(analysisContract, proxy, standards)
+  const riskSummary = buildRiskSummary(analysisContract, proxy, standards, { owner: metadata.owner, paused })
   const title = metadata.name ?? contract.name
   const subtitle = [metadata.symbol, chain.name].filter(Boolean).join(' · ')
   const report = buildProfileReport({
@@ -165,7 +179,8 @@ export async function analyzeTokenProfile(
       { label: 'Total supply', value: metadata.totalSupply },
       { label: 'Source', value: contract.isVerified ? 'verified' : 'unverified' },
       { label: 'Implementation', value: implementation?.name ?? null },
-      { label: 'Owner', value: metadata.owner },
+      { label: 'Owner', value: metadata.owner === '0x0000000000000000000000000000000000000000' ? 'renounced (0x0)' : metadata.owner },
+      { label: 'Paused now', value: paused === null ? 'n/a' : paused ? 'yes' : 'no' },
       { label: 'Proxy', value: riskSummary.proxy.detected ? riskSummary.proxy.pattern : 'not detected' },
       { label: 'Controls', value: controlNames(riskSummary) },
     ],

@@ -95,3 +95,21 @@ describe('risk summary', () => {
     expect(summary.signals.map(signal => signal.id)).not.toContain('mint-controls')
   })
 })
+
+describe('capability vs current state', () => {
+  const owned = { ...BASE_STANDARDS, ownable: true }
+
+  it('downgrades owner-only controls when ownership is renounced', () => {
+    const summary = buildRiskSummary(contract({ abi: [fn('mint'), fn('blacklist')] }), null, owned, { owner: '0x0000000000000000000000000000000000000000' })
+    const mint = summary.signals.find(signal => signal.id === 'mint-controls')!
+    expect(mint.severity).toBe('info')
+    expect(mint.detail).toContain('renounced')
+  })
+
+  it('separates "can pause" from "is paused now"', () => {
+    const canPause = buildRiskSummary(contract({ abi: [fn('pause')] }), null, owned, { paused: false })
+    expect(canPause.signals.find(signal => signal.id === 'pause-controls')).toMatchObject({ severity: 'medium', label: 'Can pause transfers' })
+    const isPaused = buildRiskSummary(contract({ abi: [fn('pause')] }), null, owned, { paused: true })
+    expect(isPaused.signals.find(signal => signal.id === 'pause-controls')).toMatchObject({ severity: 'high', label: 'Transfers are paused right now' })
+  })
+})
