@@ -67,3 +67,10 @@ contract HelperChecksSender {
     // auth lives one level down, in removeLiquidity
     function removeLiquidityETH(uint256 amount) external { removeLiquidity(amount); }
 }
+
+contract PublicSale {
+    uint256 public minted;
+
+    // public sale: payable, intentionally callable by anyone
+    function mint(uint256 count) external payable { minted += count; }
+}

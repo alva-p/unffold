@@ -43,3 +43,30 @@ contract RouterLike {
     // token is caller-chosen, but `from` is msg.sender
     function addLiquidity(address token, address pair, uint256 amount) external { TransferHelper.safeTransferFrom(token, msg.sender, pair, amount); }
 }
+
+abstract contract ERC721Like {
+    function transferFrom(address from, address to, uint256 id) public virtual {}
+}
+
+contract KongzLike is ERC721Like {
+    // override that calls the inherited implementation (which checks approval)
+    function transferFrom(address from, address to, uint256 id) public override {
+        ERC721Like.transferFrom(from, to, id);
+    }
+}
+
+contract SuperLike is ERC721Like {
+    function transferFrom(address from, address to, uint256 id) public override {
+        super.transferFrom(from, to, id);
+    }
+}
+
+abstract contract ERC721Data {
+    function safeTransferFrom(address from, address to, uint256 id, bytes memory data) public virtual {}
+}
+
+contract KongzSafeLike is ERC721Data {
+    function safeTransferFrom(address from, address to, uint256 id, bytes memory data) public override {
+        ERC721Data.safeTransferFrom(from, to, id, data);
+    }
+}
