@@ -26,7 +26,7 @@ export function proxyRiskSummary(proxy: ProxyInfo | null): RiskSummary {
       overall: 'low',
       score: 0,
       mainReason: 'No proxy pattern was detected by the quick scan.',
-      summary: 'Low risk: no proxy pattern was detected by the quick scan.',
+      summary: 'No proxy pattern was detected by the quick scan.',
       badges: ['No proxy detected'],
       verified: true,
       proxy: {

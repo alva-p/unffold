@@ -24,8 +24,8 @@ function makeTable(): Table.Table {
 }
 
 function riskLabel(risk: OverallRisk): string {
-  if (risk === 'low') return c.success('low')
-  if (risk === 'medium') return c.warn('medium')
+  if (risk === 'low') return c.success('no red flags found')
+  if (risk === 'medium') return c.warn('review needed')
   return c.danger('high')
 }
 
@@ -77,7 +77,6 @@ export async function runVault(
     console.log(`  ${c.bold('RISK SUMMARY')}`)
     const summary = makeTable()
     summary.push([c.muted('overall'), riskLabel(riskSummary.overall)])
-    summary.push([c.muted('score'), `${riskSummary.score}/100`])
     summary.push([c.muted('summary'), riskSummary.summary])
     summary.push([c.muted('main reason'), riskSummary.mainReason])
     summary.push([c.muted('proxy'), riskSummary.proxy.detected ? c.warn(riskSummary.proxy.pattern ?? 'detected') : c.success('not detected')])

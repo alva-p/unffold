@@ -61,7 +61,6 @@ export async function runProxy(
     console.log()
     console.log(`  ${c.bold('RISK SUMMARY')}`)
     console.log(`  ${c.muted('overall')}  ${risk.level === 'high' ? c.danger('high') : c.warn(risk.level)}`)
-    console.log(`  ${c.muted('score')}    ${risk.score}/100`)
     console.log(`  ${c.muted('reason')}   ${risk.mainReason}`)
 
     console.log()

@@ -54,11 +54,11 @@ describe('risk summary', () => {
     expect(controls.tradingGate).toEqual(['setMaxWallet'])
   })
 
-  it('marks unverified contracts as high risk', () => {
+  it('marks unverified contracts as review needed, not high risk', () => {
     const summary = buildRiskSummary(contract({ isVerified: false }), null, BASE_STANDARDS)
 
-    expect(summary.overall).toBe('high')
-    expect(summary.score).toBeGreaterThanOrEqual(70)
+    expect(summary.overall).toBe('medium')
+    expect(summary.summary).toContain('Review needed')
     expect(summary.mainReason).toContain('harder to inspect')
     expect(summary.signals.some(signal => signal.id === 'unverified-source')).toBe(true)
     expect(summary.signals[0].recommendation).toContain('verified source')

@@ -178,8 +178,8 @@ function mainRiskSignal(signals: RiskSignal[]): RiskSignal | null {
 
 function summaryFor(overall: OverallRisk, mainReason: string): string {
   if (overall === 'high') return `High risk: ${mainReason}`
-  if (overall === 'medium') return `Medium risk: ${mainReason}`
-  return 'Low risk: no major red flags were detected by the quick scan.'
+  if (overall === 'medium') return `Review needed: ${mainReason}`
+  return 'No red flags found by the quick scan. This is not a safety guarantee.'
 }
 
 function badgesFor(standards: string[], proxy: ProxyInfo | null, contract: ResolvedContract): string[] {
@@ -235,8 +235,9 @@ export function buildRiskSummary(
     signals.push({
       id: 'unverified-source',
       label: 'Source not verified',
-      severity: 'high',
-      detail: 'ABI/source may be incomplete, so admin and token controls are harder to inspect.',
+      // missing data is "review needed", never red: we could not check, we did not find something bad
+      severity: 'medium',
+      detail: 'Could not inspect the code: admin and token controls below may be incomplete.',
     })
   } else {
     signals.push({
