@@ -253,8 +253,11 @@ input::placeholder { color: var(--faint); }
 input:focus,
 select:focus {
   border-color: rgba(76, 125, 255, .68);
-  box-shadow: 0 0 0 3px rgba(76, 125, 255, .12);
 }
+
+/* text fields show focus with the border; the outline ring is for buttons and links */
+input:focus-visible,
+select:focus-visible { outline: none; }
 
 #saveSettings {
   height: 38px;
@@ -1050,3 +1053,23 @@ dd {
   text-decoration: none;
 }
 .reportVerdict:hover { color: var(--accent-soft); }
+
+/* compact scan form once a result is on screen: more room for the verdict and warnings */
+.shell:has(#resultPanel:not([hidden])) #addressLabel { display: none; }
+.shell:has(#resultPanel:not([hidden])) .scanner { padding-top: 10px; padding-bottom: 8px; }
+
+.badges span.good { background: rgba(52, 199, 123, .12); color: #6fdca0; }
+.badges span.info { background: rgba(76, 125, 255, .12); color: #9db5ff; }
+.badges span.warn { background: rgba(230, 181, 67, .12); color: #e6b543; }
+
+.keyHint {
+  max-width: 290px;
+  margin-top: 14px;
+  color: var(--faint);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.keyHint[hidden] { display: none; }
+.keyHint .textButton { margin-left: 4px; font-size: 11.5px; }
+
+.fieldNote { margin: 6px 0 0; color: var(--faint); font-size: 11px; }

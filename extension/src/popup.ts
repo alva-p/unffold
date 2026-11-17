@@ -71,6 +71,7 @@ const retryButton = document.querySelector<HTMLButtonElement>('#retryButton')!
 const loadingPanel = document.querySelector<HTMLElement>('#loadingPanel')!
 const emptyPanel = document.querySelector<HTMLElement>('#emptyPanel')!
 const emptyMessage = document.querySelector<HTMLElement>('#emptyMessage')!
+const keyHint = document.querySelector<HTMLElement>('#keyHint')!
 const statusText = document.querySelector<HTMLElement>('#statusText')!
 const keyState = document.querySelector<HTMLButtonElement>('#keyState')!
 const resultPanel = document.querySelector<HTMLElement>('#resultPanel')!
@@ -151,6 +152,17 @@ const labels = {
     reviewNeeded: 'Review needed',
     noSignals: 'No signals found',
     controlTitle: 'Who controls',
+    keyHintText: 'Works without a key. An Etherscan key adds verified source on more networks and upgrade history.',
+    keyHintButton: 'Add a key',
+    apiKeyStorage: 'Stored only on this device (chrome.storage.local).',
+    badgeVerified: 'Verified source',
+    badgeUnverified: 'Unverified source',
+    badgeUpgradeable: 'Upgradeable',
+    badgeKnown: 'Known',
+    badgeOfficial: 'Official',
+    badgeIssuer: 'Issuer',
+    badgeBridged: 'Bridged',
+    badgeSingleKey: 'Single-key admin',
     confidenceShort: 'conf.',
     cleanSummary: 'No red flags found by the quick scan. This is not a safety guarantee.',
     reportVerdict: 'Wrong verdict? Report it on GitHub',
@@ -220,6 +232,17 @@ const labels = {
     reviewNeeded: 'Revisar',
     noSignals: 'Sin señales',
     controlTitle: 'Quién controla',
+    keyHintText: 'Funciona sin key. Una key de Etherscan suma código verificado en más redes e historial de upgrades.',
+    keyHintButton: 'Agregar key',
+    apiKeyStorage: 'Se guarda solo en este dispositivo (chrome.storage.local).',
+    badgeVerified: 'Código verificado',
+    badgeUnverified: 'Código sin verificar',
+    badgeUpgradeable: 'Actualizable',
+    badgeKnown: 'Conocido',
+    badgeOfficial: 'Oficial',
+    badgeIssuer: 'Emisor',
+    badgeBridged: 'Puenteado',
+    badgeSingleKey: 'Admin de una sola clave',
     confidenceShort: 'confianza',
     cleanSummary: 'El escaneo rápido no encontró señales de alerta. No es una garantía de seguridad.',
     reportVerdict: '¿Veredicto incorrecto? Reportalo en GitHub',
@@ -289,6 +312,17 @@ const labels = {
     reviewNeeded: 'Revisar',
     noSignals: 'Nenhum sinal',
     controlTitle: 'Quem controla',
+    keyHintText: 'Funciona sem key. Uma key da Etherscan adiciona código verificado em mais redes e histórico de upgrades.',
+    keyHintButton: 'Adicionar key',
+    apiKeyStorage: 'Salva só neste dispositivo (chrome.storage.local).',
+    badgeVerified: 'Código verificado',
+    badgeUnverified: 'Código não verificado',
+    badgeUpgradeable: 'Atualizável',
+    badgeKnown: 'Conhecido',
+    badgeOfficial: 'Oficial',
+    badgeIssuer: 'Emissor',
+    badgeBridged: 'Bridge',
+    badgeSingleKey: 'Admin de chave única',
     confidenceShort: 'confiança',
     cleanSummary: 'A varredura rápida não encontrou sinais de alerta. Não é uma garantia de segurança.',
     reportVerdict: 'Veredito errado? Reporte no GitHub',
@@ -421,6 +455,7 @@ function syncSettingsState(keepPanel = false): void {
   const chain = settings.defaultChain ?? 'mainnet'
   const language = settings.language ?? 'en'
   keyState.classList.toggle('ready', hasKey)
+  keyHint.hidden = hasKey
   chainSelect.value = chain
   languageSelect.value = language
   setSettingsOpen(keepPanel && !setupPanel.hidden)
@@ -438,6 +473,9 @@ function syncSettingsState(keepPanel = false): void {
   scanButton.textContent = t('analyze')
   modePickerLabel.textContent = t('advancedAnalysis')
   emptyMessage.textContent = t('emptyMessage')
+  document.querySelector('#keyHintText')!.textContent = t('keyHintText')
+  document.querySelector('#keyHintButton')!.textContent = t('keyHintButton')
+  document.querySelector('#apiKeyStorage')!.textContent = t('apiKeyStorage')
   document.querySelector('#foundTitle')!.textContent = t('foundTitle')
   refreshPageScan.textContent = t('refresh')
   document.querySelector('#factsTitle')!.textContent = t('factsTitle')
@@ -544,10 +582,36 @@ function renderModeButtons(activeProfile?: string): void {
   }))
 }
 
-function renderBadges(values: string[]): void {
-  badges.replaceChildren(...values.map(value => {
+// Core badges are English labels; known prefixes get translated and a tone (good / info / warn).
+const BADGE_PREFIXES: Array<[string, LabelKey, string]> = [
+  ['Known issuer: ', 'badgeIssuer', 'info'],
+  ['Known: ', 'badgeKnown', 'good'],
+  ['Official: ', 'badgeOfficial', 'good'],
+  ['Bridged: ', 'badgeBridged', 'info'],
+]
+const BADGE_WORDS: Record<string, [LabelKey, string]> = {
+  Verified: ['badgeVerified', ''],
+  Unverified: ['badgeUnverified', 'warn'],
+  Upgradeable: ['badgeUpgradeable', ''],
+}
+
+function badgeView(value: string): { text: string; tone: string } {
+  for (const [prefix, key, tone] of BADGE_PREFIXES) {
+    if (value.startsWith(prefix)) return { text: `${t(key)}: ${value.slice(prefix.length)}`, tone }
+  }
+  const word = BADGE_WORDS[value]
+  return word ? { text: t(word[0]), tone: word[1] } : { text: value, tone: '' }
+}
+
+function renderBadges(report: ProfileReport): void {
+  const views = report.badges.map(badgeView)
+  if (report.control?.some(path => path.singleKey)) views.push({ text: t('badgeSingleKey'), tone: 'warn' })
+  // recognized identity first: it is what users look for
+  views.sort((a, b) => Number(b.tone === 'good') - Number(a.tone === 'good'))
+  badges.replaceChildren(...views.map(view => {
     const item = document.createElement('span')
-    item.textContent = value
+    item.textContent = view.text
+    if (view.tone) item.className = view.tone
     return item
   }))
 }
@@ -768,7 +832,7 @@ function renderReport(original: ProfileReport): void {
   riskTitle.textContent = t(RISK_COPY[state].title)
   riskAction.textContent = t(RISK_COPY[state].action)
   riskSummary.textContent = report.risk.mainReason || report.risk.summary
-  renderBadges(report.badges)
+  renderBadges(report)
   renderControl(report.control ?? [])
   reportVerdict.href = verdictIssueUrl(report)
   renderFacts(report.facts)
@@ -923,6 +987,8 @@ settingsForm.addEventListener('submit', async event => {
 addressInput.addEventListener('input', () => {
   renderModeButtons()
 })
+
+document.querySelector('#keyHintButton')!.addEventListener('click', () => setSettingsOpen(true))
 
 keyState.addEventListener('click', () => {
   setSettingsOpen(Boolean(setupPanel.hidden))
