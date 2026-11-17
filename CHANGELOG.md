@@ -18,6 +18,11 @@ The CLI (`unfold-evm` on npm, tags `vX.Y.Z`) and the Chrome extension (tags `ext
 - Upgrade history via Etherscan logs (shown as unavailable rather than empty without a key), plus the `unffold diff` command for the last upgrade
 - Wording never says "safe": *no red flags found* / *review needed*
 
+### NFTs and false positives
+- IPFS metadata and previews go through the Pinata gateway (ipfs.io turned service-worker only and broke previews for BAYC, Azuki, Doodles, Pudgy…)
+- NFT profile shows who controls the collection; a renounced owner turns admin and owner-only controls into context
+- `arbitrary-transfer-from` no longer flags `super` / parent-contract calls (CyberKongz) or Uniswap's `TransferHelper` library; access control skips payable public mints
+
 ### Fixes
 - `--version` and the banner now show the real version
 
