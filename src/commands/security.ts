@@ -5,6 +5,7 @@ import { c } from '../output/colors.js'
 import { addressLink } from '../output/links.js'
 import { toSarif } from '../output/sarif.js'
 import { toMarkdown } from '../output/markdown.js'
+import { knownBadge } from '../core/known-tokens.js'
 import { applyBaseline, loadBaseline, updateBaseline } from '../core/baseline.js'
 import type { Config } from '../types.js'
 
@@ -144,6 +145,8 @@ export async function runSecurity(
     console.log()
     console.log(`  ${c.bold('SECURITY SURFACE')}  ${link(scan.address)}  ${c.muted('[' + chainName + ']')}`)
     console.log(c.dim('  ──────────────────────────────────────────────────'))
+    const known = knownBadge(scan.chain.chainId, scan.address)
+    if (known) console.log(`  ${c.muted('known'.padEnd(10))}${c.success(known)}`)
     if (scan.proxy) {
       console.log(`  ${c.muted('proxy'.padEnd(10))}${scan.proxy.pattern}${scan.proxy.adminAddress ? `  admin ${link(scan.proxy.adminAddress)}` : ''}`)
       console.log(`  ${c.muted('analyzed'.padEnd(10))}${scan.target.name}  ${link(scan.target.address)}  ${c.dim('(implementation)')}`)

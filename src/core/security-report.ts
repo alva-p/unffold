@@ -1,4 +1,5 @@
 import { COVERAGE, docsUrl, scanSecurity, type Finding } from './security-checks.js'
+import { knownBadge } from './known-tokens.js'
 import { toProfileControl, type ProfileReport, type ProfileWarning } from './profile-report.js'
 import type { Config } from '../types.js'
 
@@ -48,6 +49,7 @@ export async function buildSecurityReport(
     badges: [
       scan.target.verified ? 'Verified' : 'Unverified',
       ...(scan.proxy ? ['Upgradeable'] : []),
+      ...[knownBadge(scan.chain.chainId, scan.address)].filter((badge): badge is string => badge !== null),
     ],
     risk: {
       level,

@@ -1,5 +1,5 @@
 import type { AbiItem, DetectedStandards, ProxyInfo, ResolvedContract } from '../types.js'
-import { impersonatedToken, knownToken } from './known-tokens.js'
+import { impersonatedToken, knownBadge, knownToken } from './known-tokens.js'
 
 export type RiskSeverity = 'ok' | 'info' | 'medium' | 'high'
 export type OverallRisk = 'low' | 'medium' | 'high'
@@ -187,6 +187,8 @@ function badgesFor(standards: string[], proxy: ProxyInfo | null, contract: Resol
   const badges = [...standards]
   badges.push(contract.isVerified ? 'Verified' : 'Unverified')
   if (proxy) badges.push('Upgradeable')
+  const known = knownBadge(contract.chainId, contract.address)
+  if (known) badges.push(known)
   return badges
 }
 
@@ -231,10 +233,11 @@ export interface CurrentState {
 
 const ISSUER_CONTROLS = new Set(['upgradeable', 'admin-roles', 'mint-controls', 'pause-controls', 'blacklist-controls'])
 
-// Known issuers keep their facts but as trust assumptions; symbol copies at other addresses are flagged.
-function applyIssuerContext(signals: SignalInput[], contract: ResolvedContract, symbol?: string | null): string | null {
+// Known issuers keep their facts but as trust assumptions; canonical and bridged tokens are named;
+// symbol copies at other addresses are flagged.
+function applyIssuerContext(signals: SignalInput[], contract: ResolvedContract, symbol?: string | null): void {
   const known = knownToken(contract.chainId, contract.address)
-  if (known) {
+  if (known?.kind === 'issuer') {
     for (const signal of signals) {
       if (!ISSUER_CONTROLS.has(signal.id)) continue
       signal.severity = 'info'
@@ -242,14 +245,26 @@ function applyIssuerContext(signals: SignalInput[], contract: ResolvedContract, 
     }
     signals.push({
       id: 'known-issuer',
-      label: `Official ${known.symbol} by ${known.issuer}`,
+      label: `Official ${known.symbol} by ${known.by}`,
       severity: 'medium',
-      detail: `${known.issuer} can ${known.powers}. This is expected for a regulated stablecoin: holding it means trusting the issuer.`,
+      detail: `${known.by} can ${known.powers}. This is expected for a regulated stablecoin: holding it means trusting the issuer.`,
       meaning: `This is the official ${known.symbol} contract on this network.`,
-      whyItMatters: `${known.issuer} can ${known.powers}. Expected for a regulated stablecoin, but you are trusting the issuer.`,
-      recommendation: `Treat these as issuer powers, not a scam signal. Read ${known.issuer}'s terms if freezes matter to you.`,
+      whyItMatters: `${known.by} can ${known.powers}. Expected for a regulated stablecoin, but you are trusting the issuer.`,
+      recommendation: `Treat these as issuer powers, not a scam signal. Read ${known.by}'s terms if freezes matter to you.`,
     })
-    return known.issuer
+    return
+  }
+  if (known) {
+    const bridgedToken = known.kind === 'bridged'
+    signals.push({
+      id: 'known-token',
+      label: bridgedToken ? `Bridged ${known.symbol} via ${known.by}` : `Official ${known.symbol} (${known.by})`,
+      severity: bridgedToken ? 'info' : 'ok',
+      detail: bridgedToken
+        ? `Backed by the ${known.by}, not issued natively on this network; its value depends on that bridge.`
+        : `The canonical ${known.symbol} contract on this network. Its other signals still apply.`,
+    })
+    return
   }
   const copy = impersonatedToken(contract.chainId, contract.address, symbol)
   if (copy) {
@@ -257,13 +272,12 @@ function applyIssuerContext(signals: SignalInput[], contract: ResolvedContract, 
       id: 'impersonation',
       label: `Not the official ${copy.token.symbol} on this network`,
       severity: 'high',
-      detail: `Official ${copy.token.symbol} (${copy.token.issuer}) here is ${copy.official}.`,
-      meaning: `This token uses the ${copy.token.symbol} symbol but is not ${copy.token.issuer}'s contract.`,
-      whyItMatters: `Scam tokens copy well-known symbols to look legitimate. Bridged versions also exist, but they are not ${copy.token.issuer}'s official token.`,
+      detail: `Official ${copy.token.symbol} (${copy.token.by}) here is ${copy.official}.`,
+      meaning: `This token uses the ${copy.token.symbol} symbol but is not ${copy.token.by}'s contract.`,
+      whyItMatters: `Scam tokens copy well-known symbols to look legitimate. Bridged versions also exist, but they are not ${copy.token.by}'s official token.`,
       recommendation: `Compare with the official address ${copy.official} before accepting or buying it.`,
     })
   }
-  return null
 }
 
 const OWNER_CONTROLS = new Set(['mint-controls', 'pause-controls', 'blacklist-controls', 'tax-controls', 'trading-gates'])
@@ -418,7 +432,7 @@ export function buildRiskSummary(
   }
 
   if (state) applyCurrentState(signals, standards, state)
-  const issuer = applyIssuerContext(signals, contract, state?.symbol)
+  applyIssuerContext(signals, contract, state?.symbol)
   const enrichedSignals = signals.map(enrichSignal)
   const overall = maxRisk(enrichedSignals)
   const score = riskScore(enrichedSignals)
@@ -431,7 +445,7 @@ export function buildRiskSummary(
     score,
     mainReason,
     summary: summaryFor(overall, mainReason),
-    badges: [...badgesFor(standardsLabels, proxy, contract), ...(issuer ? [`Known issuer: ${issuer}`] : [])],
+    badges: badgesFor(standardsLabels, proxy, contract),
     verified: contract.isVerified,
     proxy: {
       detected: Boolean(proxy),
