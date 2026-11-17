@@ -83,6 +83,8 @@ const riskIcon = document.querySelector<HTMLElement>('#riskIcon')!
 const riskTitle = document.querySelector<HTMLElement>('#riskTitle')!
 const riskSummary = document.querySelector<HTMLElement>('#riskSummary')!
 const riskAction = document.querySelector<HTMLElement>('#riskAction')!
+const controlSection = document.querySelector<HTMLElement>('#controlSection')!
+const controlList = document.querySelector<HTMLElement>('#controlList')!
 const nftPreview = document.querySelector<HTMLElement>('#nftPreview')!
 const nftPreviewImage = document.querySelector<HTMLImageElement>('#nftPreviewImage')!
 const badges = document.querySelector<HTMLElement>('#badges')!
@@ -145,6 +147,9 @@ const labels = {
     highRisk: 'High risk',
     reviewNeeded: 'Review needed',
     noSignals: 'No signals found',
+    controlTitle: 'Who controls',
+    controlUpgrades: 'Upgrades',
+    controlOwner: 'Owner',
     whyNoSignals: 'What this scan covers',
     couldNotVerify: "Couldn't verify",
     whyCouldNotVerify: 'Why this could not be verified',
@@ -208,6 +213,9 @@ const labels = {
     highRisk: 'Riesgo alto',
     reviewNeeded: 'Revisar',
     noSignals: 'Sin señales',
+    controlTitle: 'Quién controla',
+    controlUpgrades: 'Actualizaciones',
+    controlOwner: 'Owner',
     whyNoSignals: 'Qué cubre este análisis',
     couldNotVerify: 'No se pudo verificar',
     whyCouldNotVerify: 'Por qué no se pudo verificar',
@@ -271,6 +279,9 @@ const labels = {
     highRisk: 'Risco alto',
     reviewNeeded: 'Revisar',
     noSignals: 'Nenhum sinal',
+    controlTitle: 'Quem controla',
+    controlUpgrades: 'Atualizações',
+    controlOwner: 'Owner',
     whyNoSignals: 'O que esta análise cobre',
     couldNotVerify: 'Não foi possível verificar',
     whyCouldNotVerify: 'Por que não foi possível verificar',
@@ -420,6 +431,7 @@ function syncSettingsState(keepPanel = false): void {
   document.querySelector('#factsTitle')!.textContent = t('factsTitle')
   document.querySelector('#warningsTitle')!.textContent = t('warningsTitle')
   document.querySelector('#privacyNote')!.textContent = t('privacyNote')
+  document.querySelector('#controlTitle')!.textContent = t('controlTitle')
   copySummary.textContent = t('copySummary')
   explorerLink.textContent = t('openExplorer')
   metadataLink.textContent = t('openMetadata')
@@ -554,6 +566,19 @@ function renderFacts(values: ProfileFact[]): void {
   }))
 }
 
+// One line per control path: "Upgrades: Safe 3/5 → timelock 2d · total delay 2d"
+function renderControl(paths: NonNullable<ProfileReport['control']>): void {
+  controlSection.hidden = paths.length === 0
+  controlList.replaceChildren(...paths.flatMap(path => {
+    const term = document.createElement('dt')
+    term.textContent = t(path.role === 'upgrades' ? 'controlUpgrades' : 'controlOwner')
+    const detail = document.createElement('dd')
+    detail.textContent = path.summary
+    detail.classList.toggle('singleKey', path.singleKey)
+    return [term, detail]
+  }))
+}
+
 function renderWarnings(values: ProfileWarning[]): void {
   if (values.length === 0) {
     const empty = document.createElement('p')
@@ -644,6 +669,7 @@ function summaryText(report: ProfileReport): string {
     `${report.subtitle}`,
     `${t('risk')}: ${riskCopy(report)}`,
     report.risk.summary,
+    ...(report.control ?? []).map(path => `${t(path.role === 'upgrades' ? 'controlUpgrades' : 'controlOwner')}: ${path.summary}`),
     '',
     t('whatToCheck'),
     warningLines,
@@ -676,6 +702,7 @@ function renderReport(report: ProfileReport): void {
   riskAction.textContent = t(RISK_COPY[state].action)
   riskSummary.textContent = report.risk.mainReason || report.risk.summary
   renderBadges(report.badges)
+  renderControl(report.control ?? [])
   renderFacts(report.facts)
   renderWarnings(report.warnings)
 

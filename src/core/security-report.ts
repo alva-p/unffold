@@ -1,5 +1,5 @@
 import { COVERAGE, docsUrl, scanSecurity, type Finding } from './security-checks.js'
-import type { ProfileReport, ProfileWarning } from './profile-report.js'
+import { toProfileControl, type ProfileReport, type ProfileWarning } from './profile-report.js'
 import type { Config } from '../types.js'
 
 export function findingLocation(finding: Finding): string {
@@ -68,6 +68,7 @@ export async function buildSecurityReport(
       { label: 'Findings', value: scan.findings.filter(finding => finding.severity !== 'info').length },
     ],
     warnings,
+    control: toProfileControl(scan.control),
     links: [{ label: 'Explorer', url: `${scan.chain.explorerUrl}${scan.address}` }],
   }
 }

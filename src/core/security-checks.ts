@@ -9,6 +9,7 @@ import type {
 } from '@solidity-parser/parser/dist/src/ast-types'
 import { keccak256, toHex, type PublicClient } from 'viem'
 import { analysisContractFor, validateAnalyzeAddress } from './analyzer.js'
+import { resolveControlPaths, type ControlPath } from './control.js'
 import { resolveProxyChain } from './proxy-detector.js'
 import { resolveContract } from './resolver.js'
 import { createClient, getChainConfig } from './rpc.js'
@@ -618,7 +619,7 @@ const DETECTORS: Detector[] = [detectUpgradeability, detectAccessControl, detect
 // Shown with every result so a clean scan is never read as "safe".
 export const COVERAGE = {
   checked: [
-    'upgradeability and proxy admin',
+    'upgradeability and who controls it (EOA, Safe, timelock, DAO)',
     'access control on privileged-looking functions',
     'UUPS upgrade authorization',
     'initializer state (on-chain for OZ v5)',
@@ -689,7 +690,26 @@ export interface SecurityScan {
   // snapshot: results reflect this block; a later upgrade or config change can invalidate them
   block: string
   scannedAt: string
+  control: ControlPath[]  // who can upgrade / administer, followed to the final key, multisig, timelock or DAO
   findings: Finding[]
+}
+
+function controlFindings(control: ControlPath[], isProxy: boolean): Finding[] {
+  // without an admin slot (UUPS, beacon) the owner is usually who upgrades
+  const ownerUpgrades = isProxy && !control.some(path => path.role === 'upgrades')
+  return control.filter(path => path.singleKeyNoDelay).map(path => {
+    const upgrades = path.role === 'upgrades' || ownerUpgrades
+    return {
+      id: 'single-key-control',
+      title: upgrades ? 'One key can upgrade this contract with no delay' : 'One key administers this contract with no delay',
+      severity: upgrades ? 'medium' : 'low',
+      confidence: 'high',
+      detail: `${path.role === 'upgrades' ? 'Upgrade' : 'Owner'} control path: ${path.summary}. Whoever holds that key can change the contract's behavior immediately.`,
+      falsePositives: 'Keys held in MPC or hardware custody look like a single EOA on-chain.',
+      recommendation: 'Check who holds this key and whether the team has committed to a multisig or timelock.',
+      evidence: path.hops.map(hop => `${hop.address}: ${hop.detail}`),
+    } satisfies Finding
+  })
 }
 
 // Absolute build paths (/Users/me/repo/contracts/X.sol) leak the deployer's machine layout and
@@ -723,7 +743,10 @@ export async function scanSecurity(
   const contract = await resolveContract(address, chainName, config)
   const proxy = await resolveProxyChain(address, contract.abi, client)
   const target = await analysisContractFor(contract, chainName, config, proxy?.implementationAddress ?? null)
-  const blockNumber = await client.getBlockNumber()
+  const [blockNumber, control] = await Promise.all([
+    client.getBlockNumber(),
+    resolveControlPaths(client, address, proxy?.adminAddress),
+  ])
 
   const stateChanging = (target.abi ?? []).filter(isStateChanging)
   const sources = sourcesOf(target)
@@ -755,6 +778,7 @@ export async function scanSecurity(
     },
     block: blockNumber.toString(),
     scannedAt: new Date().toISOString(),
-    findings,
+    control,
+    findings: [...findings, ...controlFindings(control, Boolean(proxy))].sort(compareFindings),
   }
 }

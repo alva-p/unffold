@@ -81,6 +81,14 @@ export async function runToken(
     if (metadata.owner) identity.push([c.muted('owner'), c.address(addressLink(shortAddr(metadata.owner), metadata.owner, explorerBase))])
     console.log(identity.toString())
 
+    if (result.report.control?.length) {
+      console.log()
+      console.log(`  ${c.bold('WHO CONTROLS')}`)
+      for (const path of result.report.control) {
+        console.log(`  ${c.muted(path.role.padEnd(10))}${path.singleKey ? c.warn(path.summary) : path.summary}`)
+      }
+    }
+
     console.log()
     console.log(`  ${c.bold('RISK SUMMARY')}`)
     const summaryTable = makeTable()

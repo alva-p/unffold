@@ -125,6 +125,10 @@ export async function runSecurity(
       console.log(`  ${c.muted('analyzed'.padEnd(10))}${scan.target.name}  ${link(scan.target.address)}  ${c.dim('(implementation)')}`)
     }
     console.log(`  ${c.muted('as of'.padEnd(10))}block ${scan.block}  ${c.dim(scan.scannedAt.replace('T', ' ').slice(0, 16) + ' UTC')}${scan.proxy ? c.dim('  · reflects the current implementation; an upgrade can change it') : ''}`)
+    for (const path of scan.control) {
+      const color = path.singleKeyNoDelay ? c.warn : (text: string) => text
+      console.log(`  ${c.muted((path.role === 'upgrades' ? 'upgrades' : 'owner').padEnd(10))}${color(path.summary)}`)
+    }
     console.log(`  ${c.muted('source'.padEnd(10))}${scan.target.verified ? c.success('verified') : c.warn('unverified')}  ${c.dim(`${scan.stats.stateChanging} state-changing fns, ${scan.stats.privilegedLooking} privileged-looking`)}`)
     console.log()
 

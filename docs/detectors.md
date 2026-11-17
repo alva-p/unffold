@@ -22,6 +22,13 @@ When the address is a proxy, unffold analyzes the **implementation** behind it. 
 **How to verify:** follow the admin/owner: is it a multisig, a timelock with a delay, governance, or a single key? The on-chain evidence shows the implementation slot and admin.
 **False positive when:** never wrong about upgradeability itself; the risk depends on who controls it.
 
+### single-key-control
+
+**Detects:** following the proxy admin (or the owner) hop by hop ends at a single key (EOA, including EIP-7702 delegated accounts) with no timelock delay on the way. Medium when it controls upgrades, low when it only owns the contract.
+**Why it matters:** whoever holds that key can change the contract's behavior immediately, and users have no time to exit.
+**How to verify:** the evidence lists each hop (ProxyAdmin → owner → …). Check who holds the final key; a Safe shows as `Safe n/m`, a timelock as `timelock, min delay …`.
+**False positive when:** the key is held in MPC or hardware custody, which looks like a single EOA on-chain.
+
 ### unprotected-privileged
 
 **Detects:** an external/public state-changing function whose name suggests admin use (`set*`, `pause`, `upgrade*`, `mint`, `grant*`, `rescue*`…) with no access-control modifier and no `msg.sender` / `_check*` check in its body.

@@ -126,6 +126,7 @@ describe('sarif', () => {
       stats: { stateChanging: 0, privilegedLooking: 0 },
       block: '123',
       scannedAt: '2026-11-17T00:00:00.000Z',
+      control: [],
       findings,
     })
     const run = sarif.runs[0]

@@ -3,7 +3,8 @@ import { createClient, getChainConfig } from '../rpc.js'
 import { resolveProxyChain } from '../proxy-detector.js'
 import { resolveContract } from '../resolver.js'
 import { detectStandards } from '../standards.js'
-import { buildProfileReport, type ProfileReport } from '../profile-report.js'
+import { buildProfileReport, toProfileControl, type ProfileReport } from '../profile-report.js'
+import { resolveControlPaths } from '../control.js'
 import { buildRiskSummary, type RiskSummary } from '../risk-summary.js'
 import type { Config } from '../../types.js'
 
@@ -145,12 +146,13 @@ export async function analyzeTokenProfile(
   const client = createClient(chainName, config, rpcOverride)
   const contract = await resolveContract(address, chainName, config)
   const proxy = await resolveProxyChain(address, contract.abi, client)
-  const [metadata, implementation, paused] = await Promise.all([
+  const [metadata, implementation, paused, control] = await Promise.all([
     readTokenMetadata(client, address),
     proxy && proxy.implementationAddress !== address
       ? resolveContract(proxy.implementationAddress, chainName, config).catch(() => null)
       : Promise.resolve(null),
     readPaused(client, address),
+    resolveControlPaths(client, address, proxy?.adminAddress),
   ])
   const analysisContract = implementation
     ? {
@@ -173,6 +175,7 @@ export async function analyzeTokenProfile(
     address,
     chain,
     riskSummary,
+    control: toProfileControl(control),
     facts: [
       { label: 'Symbol', value: metadata.symbol },
       { label: 'Decimals', value: metadata.decimals },
