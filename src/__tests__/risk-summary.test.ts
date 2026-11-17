@@ -161,3 +161,10 @@ describe('canonical, bridged and known contracts', () => {
     expect(knownBadge(42161, '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D')).toBeNull()
   })
 })
+
+describe('renounced owner and admin roles', () => {
+  it('turns the Ownable admin signal into context once the owner is renounced', () => {
+    const summary = buildRiskSummary(contract({}), null, { ...BASE_STANDARDS, ownable: true }, { owner: '0x0000000000000000000000000000000000000000' })
+    expect(summary.signals.find(signal => signal.id === 'admin-roles')?.severity).toBe('info')
+  })
+})

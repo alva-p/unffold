@@ -8,6 +8,7 @@ import { buildSecurityReport } from '../../src/core/security-report.js'
 import { buildTraceReport } from '../../src/core/trace-report.js'
 import type { ProfileFact, ProfileReport, ProfileWarning } from '../../src/core/profile-report.js'
 import { localizeControl, localizeWarning } from '../../src/core/finding-i18n.js'
+import { normalizeNftUri } from '../../src/core/profiles/nft-profile.js'
 import type { Config } from '../../src/types.js'
 
 type StoredSettings = {
@@ -519,11 +520,8 @@ function clearError(): void {
 
 function normalizeMediaUri(uri: unknown): string | null {
   if (typeof uri !== 'string' || !uri) return null
-  if (uri.startsWith('ipfs://ipfs/')) return `https://ipfs.io/ipfs/${uri.slice('ipfs://ipfs/'.length)}`
-  if (uri.startsWith('ipfs://')) return `https://ipfs.io/ipfs/${uri.slice('ipfs://'.length)}`
-  if (uri.startsWith('ar://')) return `https://arweave.net/${uri.slice('ar://'.length)}`
-  if (uri.startsWith('http://') || uri.startsWith('https://') || uri.startsWith('data:image/')) return uri
-  return null
+  const normalized = normalizeNftUri(uri)!
+  return /^(https?:\/\/|data:image\/)/.test(normalized) ? normalized : null
 }
 
 function parseDataJson(uri: string): { image?: unknown; image_url?: unknown } | null {

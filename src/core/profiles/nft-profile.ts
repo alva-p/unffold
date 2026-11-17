@@ -3,7 +3,8 @@ import { createClient, getChainConfig } from '../rpc.js'
 import { resolveProxyChain } from '../proxy-detector.js'
 import { resolveContract } from '../resolver.js'
 import { detectStandards } from '../standards.js'
-import { buildProfileReport, type ProfileReport } from '../profile-report.js'
+import { buildProfileReport, toProfileControl, type ProfileReport } from '../profile-report.js'
+import { resolveControlPaths } from '../control.js'
 import { buildRiskSummary, type RiskSummary } from '../risk-summary.js'
 import type { AbiItem, Config } from '../../types.js'
 
@@ -98,11 +99,17 @@ async function readTokenURI(client: ReturnType<typeof createClient>, address: st
   }
 }
 
+// ipfs.io moved to a service-worker-only gateway (Nov 2026) and answers plain fetches with a notice page.
+// Pinata's public gateway serves content with CORS *, so the popup needs no extra host permission.
+// ponytail: single gateway; add a fallback list if Pinata starts rate-limiting.
+const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs/'
+
 export function normalizeNftUri(uri: string | null): string | null {
   if (!uri) return null
-  if (uri.startsWith('ipfs://ipfs/')) return `https://ipfs.io/ipfs/${uri.slice('ipfs://ipfs/'.length)}`
-  if (uri.startsWith('ipfs://')) return `https://ipfs.io/ipfs/${uri.slice('ipfs://'.length)}`
-  return uri
+  if (uri.startsWith('ipfs://ipfs/')) return IPFS_GATEWAY + uri.slice('ipfs://ipfs/'.length)
+  if (uri.startsWith('ipfs://')) return IPFS_GATEWAY + uri.slice('ipfs://'.length)
+  if (uri.startsWith('ar://')) return `https://arweave.net/${uri.slice('ar://'.length)}`
+  return uri.replace(/^https?:\/\/ipfs\.io\/ipfs\//, IPFS_GATEWAY)
 }
 
 async function readUint(client: ReturnType<typeof createClient>, address: string, functionName: string): Promise<string | null> {
@@ -143,10 +150,9 @@ export async function analyzeNftProfile(
   const contract = await resolveContract(address, chainName, config)
   const proxy = await resolveProxyChain(address, contract.abi, client)
   const standards = detectStandards(contract.abi || [], contract.sourceCode)
-  const riskSummary = buildRiskSummary(contract, proxy, standards)
   const controls = detectNftControls(contract.abi || [])
 
-  const [name, symbol, totalSupply, owner, baseURI, contractURI, tokenURI0, tokenURI1] = await Promise.all([
+  const [name, symbol, totalSupply, owner, baseURI, contractURI, tokenURI0, tokenURI1, control] = await Promise.all([
     readString(client, address, 'name'),
     readString(client, address, 'symbol'),
     readUint(client, address, 'totalSupply'),
@@ -155,7 +161,10 @@ export async function analyzeNftProfile(
     readString(client, address, 'contractURI'),
     readTokenURI(client, address, 0n),
     readTokenURI(client, address, 1n),
+    resolveControlPaths(client, address, proxy?.adminAddress),
   ])
+  // current state: a renounced owner turns owner-only controls into context
+  const riskSummary = buildRiskSummary(contract, proxy, standards, { owner })
   const tokenURI = tokenURI0 ?? tokenURI1
   const previewURI = normalizeNftUri(contractURI ?? tokenURI ?? baseURI)
 
@@ -168,6 +177,7 @@ export async function analyzeNftProfile(
     address,
     chain,
     riskSummary,
+    control: toProfileControl(control),
     facts: [
       { label: 'Symbol', value: symbol },
       { label: 'Total supply', value: totalSupply },

@@ -280,7 +280,7 @@ function applyIssuerContext(signals: SignalInput[], contract: ResolvedContract, 
   }
 }
 
-const OWNER_CONTROLS = new Set(['mint-controls', 'pause-controls', 'blacklist-controls', 'tax-controls', 'trading-gates'])
+const OWNER_CONTROLS = new Set(['admin-roles', 'mint-controls', 'pause-controls', 'blacklist-controls', 'tax-controls', 'trading-gates'])
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 function applyCurrentState(signals: SignalInput[], standards: DetectedStandards, state: CurrentState): void {
