@@ -38,6 +38,13 @@ Run `npm run build` after every change — the CLI runs from `dist/`, not source
 
 For bigger changes (new commands, new proxy patterns, architecture changes), open an issue first to align before writing code.
 
+## Releasing
+
+The CLI and the extension are versioned separately; add the notes to `CHANGELOG.md` first (`## CLI X.Y.Z` / `## Extension X.Y.Z`).
+
+- **Extension:** bump `extension/manifest.json`, merge, then `git tag extension-vX.Y.Z && git push origin extension-vX.Y.Z`. CI builds, tests and attaches `unffold-extension-X.Y.Z.zip` to a GitHub Release; upload that zip to the Chrome Web Store. Locally: `npm run release:extension` → `releases/`.
+- **CLI:** bump `package.json` (and `npm install --package-lock-only`), merge, then `git tag vX.Y.Z && git push origin vX.Y.Z`. CI publishes to npm (secret `NPM_TOKEN`) and creates the GitHub Release.
+
 ## Project structure
 
 ```

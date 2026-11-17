@@ -1,4 +1,5 @@
 import { defineConfig } from 'tsup'
+import { version } from './package.json'
 
 const cliConfig = {
   entry: ['src/index.ts'],
@@ -9,6 +10,7 @@ const cliConfig = {
   clean: true,
   shims: true,
   outExtension: () => ({ js: '.cjs' }),
+  define: { __VERSION__: JSON.stringify(version) },
 }
 
 const extensionConfig = {

@@ -1,6 +1,6 @@
 {
   "name": "unfold-evm",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Unfold any EVM contract in seconds",
   "bin": {
     "unffold": "dist/index.cjs"
@@ -19,7 +19,9 @@
     "test:smoke": "vitest run src/__tests__/smoke.test.ts",
     "test:anvil": "vitest run anvil.test",
     "dev": "npx ts-node src/index.ts",
-    "start": "node dist/index.cjs"
+    "start": "node dist/index.cjs",
+    "release:extension": "npm run typecheck && npm test && npm run build && node scripts/pack-extension.mjs",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "keywords": [
     "ethereum",

@@ -48,7 +48,7 @@ function openExternalUrl(url: string): void {
 program
   .name('unffold')
   .description('Unfold any EVM contract in seconds')
-  .version('0.1.0')
+  .version(__VERSION__)
   .argument('[address]', 'EVM contract address (omit to enter interactive mode)')
   .option('--chain <name>', 'Target chain')
   .option('--rpc <url>', 'Custom RPC URL')
