@@ -1,4 +1,4 @@
-import { COVERAGE, scanSecurity, type Finding } from './security-checks.js'
+import { COVERAGE, docsUrl, scanSecurity, type Finding } from './security-checks.js'
 import type { ProfileReport, ProfileWarning } from './profile-report.js'
 import type { Config } from '../types.js'
 
@@ -8,14 +8,17 @@ export function findingLocation(finding: Finding): string {
 }
 
 function toWarning(finding: Finding): ProfileWarning {
-  const location = findingLocation(finding)
   return {
     id: finding.id,
     title: finding.title,
     severity: finding.severity,
     confidence: finding.confidence,
-    body: location ? `${finding.detail} (${location})` : finding.detail,
-    recommendation: `${finding.recommendation} Possible false positive: ${finding.falsePositives}`,
+    body: finding.detail,
+    recommendation: finding.recommendation,
+    falsePositive: finding.falsePositives,
+    evidence: finding.evidence,
+    location: findingLocation(finding) || undefined,
+    docsUrl: docsUrl(finding.id),
   }
 }
 

@@ -82,6 +82,7 @@ const riskCallout = document.querySelector<HTMLElement>('#riskCallout')!
 const riskIcon = document.querySelector<HTMLElement>('#riskIcon')!
 const riskTitle = document.querySelector<HTMLElement>('#riskTitle')!
 const riskSummary = document.querySelector<HTMLElement>('#riskSummary')!
+const riskAction = document.querySelector<HTMLElement>('#riskAction')!
 const nftPreview = document.querySelector<HTMLElement>('#nftPreview')!
 const nftPreviewImage = document.querySelector<HTMLImageElement>('#nftPreviewImage')!
 const badges = document.querySelector<HTMLElement>('#badges')!
@@ -123,7 +124,6 @@ const labels = {
     warningsTitle: 'Warnings',
     whyHighRisk: 'Why this is high risk',
     whyReviewNeeded: 'Why this needs review',
-    whyLooksSafer: 'Why this looks safer',
     showMoreWarnings: 'Show all warnings',
     showFewerWarnings: 'Show fewer warnings',
     copySummary: 'Copy summary',
@@ -144,9 +144,20 @@ const labels = {
     whatToCheck: 'What to check:',
     highRisk: 'High risk',
     reviewNeeded: 'Review needed',
-    looksSafer: 'Looks safer',
     noSignals: 'No signals found',
     whyNoSignals: 'What this scan covers',
+    couldNotVerify: "Couldn't verify",
+    whyCouldNotVerify: 'Why this could not be verified',
+    actionHigh: "Don't approve or send funds until you have verified this.",
+    actionMedium: "Confirm the address on the project's official site and read the warnings below.",
+    actionLow: 'Nothing found by these checks. If you interact, start with a small amount.',
+    actionUnknown: 'Not enough data to judge. Treat it as unknown, not as safe.',
+    whatItMeans: 'What it means',
+    whatToDo: 'What to do',
+    falsePositiveIf: 'False positive if',
+    evidence: 'On-chain evidence',
+    docs: 'How this check works',
+    privacyNote: 'Read-only: never signs or touches your wallet. The address is sent only to the RPC, Sourcify and Etherscan (if you set a key).',
   },
   es: {
     ready: 'Listo',
@@ -176,7 +187,6 @@ const labels = {
     warningsTitle: 'Alertas',
     whyHighRisk: 'Por qué el riesgo es alto',
     whyReviewNeeded: 'Por qué requiere revisión',
-    whyLooksSafer: 'Por qué se ve más seguro',
     showMoreWarnings: 'Mostrar todas las alertas',
     showFewerWarnings: 'Mostrar menos alertas',
     copySummary: 'Copiar resumen',
@@ -197,9 +207,20 @@ const labels = {
     whatToCheck: 'Qué revisar:',
     highRisk: 'Riesgo alto',
     reviewNeeded: 'Revisar',
-    looksSafer: 'Se ve mejor',
     noSignals: 'Sin señales',
     whyNoSignals: 'Qué cubre este análisis',
+    couldNotVerify: 'No se pudo verificar',
+    whyCouldNotVerify: 'Por qué no se pudo verificar',
+    actionHigh: 'No apruebes ni envíes fondos hasta verificar esto.',
+    actionMedium: 'Confirmá la dirección en el sitio oficial del proyecto y leé las alertas.',
+    actionLow: 'Estos chequeos no encontraron nada. Si interactuás, empezá con un monto chico.',
+    actionUnknown: 'No hay datos suficientes para juzgar. Tratalo como desconocido, no como seguro.',
+    whatItMeans: 'Qué implica',
+    whatToDo: 'Qué hacer',
+    falsePositiveIf: 'Falso positivo si',
+    evidence: 'Evidencia on-chain',
+    docs: 'Cómo funciona este chequeo',
+    privacyNote: 'Solo lectura: nunca firma ni toca tu wallet. La dirección se envía solo al RPC, Sourcify y Etherscan (si configuraste una key).',
   },
   pt: {
     ready: 'Pronto',
@@ -229,7 +250,6 @@ const labels = {
     warningsTitle: 'Alertas',
     whyHighRisk: 'Por que o risco é alto',
     whyReviewNeeded: 'Por que precisa de revisão',
-    whyLooksSafer: 'Por que parece mais seguro',
     showMoreWarnings: 'Mostrar todos os alertas',
     showFewerWarnings: 'Mostrar menos alertas',
     copySummary: 'Copiar resumo',
@@ -250,9 +270,20 @@ const labels = {
     whatToCheck: 'O que verificar:',
     highRisk: 'Risco alto',
     reviewNeeded: 'Revisar',
-    looksSafer: 'Parece melhor',
     noSignals: 'Nenhum sinal',
     whyNoSignals: 'O que esta análise cobre',
+    couldNotVerify: 'Não foi possível verificar',
+    whyCouldNotVerify: 'Por que não foi possível verificar',
+    actionHigh: 'Não aprove nem envie fundos até verificar isto.',
+    actionMedium: 'Confirme o endereço no site oficial do projeto e leia os alertas.',
+    actionLow: 'Estas verificações não encontraram nada. Se interagir, comece com um valor pequeno.',
+    actionUnknown: 'Não há dados suficientes para avaliar. Trate como desconhecido, não como seguro.',
+    whatItMeans: 'O que significa',
+    whatToDo: 'O que fazer',
+    falsePositiveIf: 'Falso positivo se',
+    evidence: 'Evidência on-chain',
+    docs: 'Como esta verificação funciona',
+    privacyNote: 'Somente leitura: nunca assina nem toca sua carteira. O endereço é enviado apenas ao RPC, Sourcify e Etherscan (se você definir uma chave).',
   },
 } satisfies Record<Language, Record<string, string>>
 
@@ -275,7 +306,9 @@ const modes: Array<{ mode: AnalysisMode; label: string }> = [
 
 const traceMode = [{ mode: 'trace' as const, label: 'Trace' }]
 
-function t(key: keyof typeof labels.en): string {
+type LabelKey = keyof typeof labels.en
+
+function t(key: LabelKey): string {
   return labels[settings.language ?? 'en'][key]
 }
 
@@ -386,6 +419,7 @@ function syncSettingsState(keepPanel = false): void {
   refreshPageScan.textContent = t('refresh')
   document.querySelector('#factsTitle')!.textContent = t('factsTitle')
   document.querySelector('#warningsTitle')!.textContent = t('warningsTitle')
+  document.querySelector('#privacyNote')!.textContent = t('privacyNote')
   copySummary.textContent = t('copySummary')
   explorerLink.textContent = t('openExplorer')
   metadataLink.textContent = t('openMetadata')
@@ -549,24 +583,55 @@ function renderWarnings(values: ProfileWarning[]): void {
     const severity = document.createElement('span')
     severity.textContent = warning.confidence ? `${warning.severity} · ${warning.confidence} conf.` : warning.severity
 
-    const body = document.createElement('p')
-    body.textContent = warning.body
-
-    const recommendation = document.createElement('p')
-    recommendation.className = 'recommendation'
-    recommendation.textContent = warning.recommendation
+    // what it means / what to do / when it is a false positive, then verifiable evidence
+    const section = (label: LabelKey, text: string, className = '') => {
+      const p = document.createElement('p')
+      p.className = className
+      const heading = document.createElement('span')
+      heading.className = 'warningLabel'
+      heading.textContent = t(label)
+      p.append(heading, text)
+      return p
+    }
+    const parts = [section('whatItMeans', warning.body), section('whatToDo', warning.recommendation, 'recommendation')]
+    if (warning.falsePositive) parts.push(section('falsePositiveIf', warning.falsePositive))
+    const evidence = [warning.location, ...(warning.evidence ?? [])].filter((line): line is string => Boolean(line))
+    if (evidence.length > 0) parts.push(section('evidence', evidence.join('\n'), 'evidence'))
+    if (warning.docsUrl) {
+      const links = document.createElement('p')
+      links.className = 'warningLinks'
+      const docs = document.createElement('a')
+      docs.href = warning.docsUrl
+      docs.target = '_blank'
+      docs.rel = 'noreferrer'
+      docs.textContent = t('docs')
+      links.append(docs)
+      parts.push(links)
+    }
 
     header.append(title, severity)
-    item.append(header, body, recommendation)
+    item.append(header, ...parts)
     return item
   }))
 }
 
+type RiskState = 'high' | 'medium' | 'low' | 'unknown'
+
+// Missing source is "couldn't verify" (grey), never green or red; a clean result is "no signals", never "safe".
+function riskState(report: ProfileReport): RiskState {
+  if (report.risk.level !== 'high' && report.badges.includes('Unverified')) return 'unknown'
+  return report.risk.level
+}
+
+const RISK_COPY: Record<RiskState, { pill: LabelKey; title: LabelKey; action: LabelKey; icon: string }> = {
+  high: { pill: 'highRisk', title: 'whyHighRisk', action: 'actionHigh', icon: '!' },
+  medium: { pill: 'reviewNeeded', title: 'whyReviewNeeded', action: 'actionMedium', icon: '!' },
+  low: { pill: 'noSignals', title: 'whyNoSignals', action: 'actionLow', icon: 'i' },
+  unknown: { pill: 'couldNotVerify', title: 'whyCouldNotVerify', action: 'actionUnknown', icon: '?' },
+}
+
 function riskCopy(report: ProfileReport): string {
-  if (report.risk.level === 'high') return t('highRisk')
-  if (report.risk.level === 'medium') return t('reviewNeeded')
-  // a clean security scan is "nothing found by these checks", never "safe"
-  return report.profile === 'security' ? t('noSignals') : t('looksSafer')
+  return t(RISK_COPY[riskState(report)].pill)
 }
 
 function summaryText(report: ProfileReport): string {
@@ -602,12 +667,13 @@ function renderReport(report: ProfileReport): void {
   reportSubtitle.textContent = report.subtitle
   reportAddress.textContent = shortAddress(report.address)
   reportAddress.title = report.address
+  const state = riskState(report)
   riskPill.textContent = riskCopy(report)
-  riskPill.className = `riskPill ${report.risk.level}`
-  riskCallout.className = `riskCallout ${report.risk.level}`
-  const cleanSecurity = report.profile === 'security' && report.risk.level === 'low'
-  riskIcon.textContent = report.risk.level === 'low' ? (cleanSecurity ? 'i' : '✓') : '!'
-  riskTitle.textContent = report.risk.level === 'high' ? t('whyHighRisk') : report.risk.level === 'medium' ? t('whyReviewNeeded') : cleanSecurity ? t('whyNoSignals') : t('whyLooksSafer')
+  riskPill.className = `riskPill ${state}`
+  riskCallout.className = `riskCallout ${state}`
+  riskIcon.textContent = RISK_COPY[state].icon
+  riskTitle.textContent = t(RISK_COPY[state].title)
+  riskAction.textContent = t(RISK_COPY[state].action)
   riskSummary.textContent = report.risk.mainReason || report.risk.summary
   renderBadges(report.badges)
   renderFacts(report.facts)

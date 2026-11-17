@@ -13,8 +13,12 @@ export interface ProfileWarning {
   title: string
   severity: RiskSignal['severity'] | 'low'
   confidence?: 'low' | 'medium' | 'high'
-  body: string
-  recommendation: string
+  body: string  // what it means
+  recommendation: string  // what to do
+  falsePositive?: string
+  evidence?: string[]  // on-chain reads backing the warning
+  location?: string  // file:line
+  docsUrl?: string
 }
 
 export interface ProfileLink {
