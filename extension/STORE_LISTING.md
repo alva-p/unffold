@@ -28,6 +28,10 @@ Triage signals to verify, not a security audit.
 - Grey "Couldn't verify" state; warnings now in Spanish and Portuguese
 - Copy summary as a Markdown checklist; "Wrong verdict?" report link
 
+## Screenshots
+
+`store-assets/`: token-en.png, security-en.png, security-es.png (1280×800).
+
 ## Privacy practices (dashboard answers)
 
 - Single purpose: inspect EVM smart contracts before interacting with them.
