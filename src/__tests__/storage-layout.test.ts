@@ -12,6 +12,12 @@ contract Simple {
 `
 
 describe('findStorageSlot', () => {
+  it('does not assign storage slots to constants or immutables', () => {
+    const source = 'contract C { uint256 constant A = 1; address immutable B; uint256 public c; }'
+    expect(findStorageSlot(source, 'c')?.slot).toBe('0x' + '0'.repeat(64))
+    expect(findStorageSlot(source, 'A')).toBeNull()
+  })
+
   it('resolves numeric slot 0', () => {
     const result = findStorageSlot(null, '0')
     expect(result?.kind).toBe('slot')
