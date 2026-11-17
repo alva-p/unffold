@@ -33,6 +33,7 @@
         <form id="settingsForm" class="stack">
           <label id="apiKeyLabel" for="apiKey">API key</label>
           <input id="apiKey" name="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your Etherscan key">
+          <p id="apiKeyStorage" class="fieldNote"></p>
           <div class="row">
             <div class="field">
               <label id="chainLabel" for="chain">Default network</label>
@@ -120,6 +121,10 @@
       <section id="emptyPanel" class="emptyPanel">
         <span class="emptyIcon" aria-hidden="true">0x</span>
         <p id="emptyMessage">Paste a contract address or a transaction hash. Unffold reads it on-chain and tells you what it is before you interact.</p>
+        <p id="keyHint" class="keyHint" hidden>
+          <span id="keyHintText"></span>
+          <button id="keyHintButton" class="textButton" type="button"></button>
+        </p>
       </section>
 
       <section id="resultPanel" class="result" hidden>
