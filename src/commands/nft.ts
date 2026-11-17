@@ -69,7 +69,8 @@ export async function runNft(
     identity.push([c.muted('total supply'), nft.totalSupply ?? c.muted('unknown')])
     if (nft.owner) {
       const isRenounced = nft.owner === '0x0000000000000000000000000000000000000000'
-      identity.push([c.muted('owner'), isRenounced ? c.success('renounced') : c.address(addressLink(shortAddr(nft.owner), nft.owner, explorerBase))])
+      const control = result.report.control?.find(entry => entry.role === 'owner')?.summary
+      identity.push([c.muted('owner'), isRenounced ? c.success('renounced') : `${c.address(addressLink(shortAddr(nft.owner), nft.owner, explorerBase))}${control ? `  ${c.muted(control)}` : ''}`])
     }
     if (nft.baseURI) identity.push([c.muted('base URI'), nft.baseURI.length > 80 ? `${nft.baseURI.slice(0, 77)}...` : nft.baseURI])
     if (nft.previewURI) identity.push([c.muted('metadata'), nft.previewURI.length > 80 ? `${nft.previewURI.slice(0, 77)}...` : nft.previewURI])
