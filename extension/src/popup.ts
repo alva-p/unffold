@@ -7,6 +7,7 @@ import { analyzeVaultProfile } from '../../src/core/profiles/vault-profile.js'
 import { buildSecurityReport } from '../../src/core/security-report.js'
 import { buildTraceReport } from '../../src/core/trace-report.js'
 import type { ProfileFact, ProfileReport, ProfileWarning } from '../../src/core/profile-report.js'
+import { localizeControl, localizeWarning } from '../../src/core/finding-i18n.js'
 import type { Config } from '../../src/types.js'
 
 type StoredSettings = {
@@ -150,6 +151,8 @@ const labels = {
     reviewNeeded: 'Review needed',
     noSignals: 'No signals found',
     controlTitle: 'Who controls',
+    confidenceShort: 'conf.',
+    cleanSummary: 'No red flags found by the quick scan. This is not a safety guarantee.',
     reportVerdict: 'Wrong verdict? Report it on GitHub',
     controlUpgrades: 'Upgrades',
     controlOwner: 'Owner',
@@ -217,6 +220,8 @@ const labels = {
     reviewNeeded: 'Revisar',
     noSignals: 'Sin señales',
     controlTitle: 'Quién controla',
+    confidenceShort: 'confianza',
+    cleanSummary: 'El escaneo rápido no encontró señales de alerta. No es una garantía de seguridad.',
     reportVerdict: '¿Veredicto incorrecto? Reportalo en GitHub',
     controlUpgrades: 'Actualizaciones',
     controlOwner: 'Owner',
@@ -284,6 +289,8 @@ const labels = {
     reviewNeeded: 'Revisar',
     noSignals: 'Nenhum sinal',
     controlTitle: 'Quem controla',
+    confidenceShort: 'confiança',
+    cleanSummary: 'A varredura rápida não encontrou sinais de alerta. Não é uma garantia de segurança.',
     reportVerdict: 'Veredito errado? Reporte no GitHub',
     controlUpgrades: 'Atualizações',
     controlOwner: 'Owner',
@@ -585,6 +592,12 @@ function renderControl(paths: NonNullable<ProfileReport['control']>): void {
   }))
 }
 
+const LEVEL_WORDS: Record<string, Record<string, string>> = {
+  es: { high: 'alta', medium: 'media', low: 'baja', info: 'info' },
+  pt: { high: 'alta', medium: 'média', low: 'baixa', info: 'info' },
+}
+const levelWord = (level: string) => LEVEL_WORDS[settings.language ?? 'en']?.[level] ?? level
+
 function renderWarnings(values: ProfileWarning[]): void {
   if (values.length === 0) {
     const empty = document.createElement('p')
@@ -612,7 +625,7 @@ function renderWarnings(values: ProfileWarning[]): void {
     title.textContent = warning.title
 
     const severity = document.createElement('span')
-    severity.textContent = warning.confidence ? `${warning.severity} · ${warning.confidence} conf.` : warning.severity
+    severity.textContent = warning.confidence ? `${levelWord(warning.severity)} · ${t('confidenceShort')} ${levelWord(warning.confidence)}` : levelWord(warning.severity)
 
     // what it means / what to do / when it is a false positive, then verifiable evidence
     const section = (label: LabelKey, text: string, className = '') => {
@@ -710,7 +723,26 @@ function verdictIssueUrl(report: ProfileReport): string {
   return `https://github.com/alva-p/unffold/issues/new?${params}`
 }
 
-function renderReport(report: ProfileReport): void {
+// The core speaks English; swap in the popup language for warnings, control paths and the callout text.
+function localizeReport(report: ProfileReport): ProfileReport {
+  const lang = settings.language ?? 'en'
+  if (lang === 'en') return report
+  const warnings = report.warnings.map(warning => localizeWarning(warning, lang))
+  const top = warnings[0]
+  const translated = top && top !== report.warnings[0]
+  return {
+    ...report,
+    warnings,
+    control: report.control?.map(path => ({ ...path, summary: localizeControl(path.summary, lang) })),
+    risk: {
+      ...report.risk,
+      mainReason: translated ? (report.profile === 'security' ? `${top.title}. ${top.body}` : top.body) : report.risk.level === 'low' ? t('cleanSummary') : report.risk.mainReason,
+    },
+  }
+}
+
+function renderReport(original: ProfileReport): void {
+  const report = localizeReport(original)
   stopLoading()
   currentReport = report
   allWarningsVisible = false
