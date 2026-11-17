@@ -262,6 +262,23 @@ const detectUupsAuth: Detector = contracts => {
   return out
 }
 
+// UUPS keeps the upgrade function in the implementation: if it is missing, the next upgrade is impossible.
+// All contracts are scanned (including vendored OZ, where upgradeToAndCall usually lives).
+const detectUupsMissingUpgrade: Detector = (contracts, ctx) => {
+  if (!ctx.proxy?.pattern.includes('UUPS') || contracts.length === 0) return []
+  const hasUpgrade = contracts.some(contract => functionsOf(contract).some(fn => /^upgradeTo(AndCall)?$/.test(fn.name ?? '')))
+  if (hasUpgrade) return []
+  return [{
+    id: 'uups-no-upgrade-function',
+    title: 'UUPS implementation has no upgradeTo / upgradeToAndCall',
+    severity: 'medium',
+    confidence: 'medium',
+    detail: 'In UUPS the upgrade function lives in the implementation. Without it, this proxy can no longer be upgraded, including for an emergency fix.',
+    falsePositives: 'The team intentionally froze the contract, or the upgrade entry point has a non-standard name.',
+    recommendation: 'Confirm whether freezing upgrades was intended, and how bugs would be fixed.',
+  }]
+}
+
 // ── Uninitialized proxy / implementation ────────────────────────────────────
 
 // OZ v5 ERC-7201 namespace: keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.Initializable")) - 1)) & ~0xff
@@ -614,14 +631,14 @@ const detectMarkers: Detector = contracts => {
 
 // ── Runner ──────────────────────────────────────────────────────────────────
 
-const DETECTORS: Detector[] = [detectUpgradeability, detectAccessControl, detectUupsAuth, detectInitState, detectUncheckedCalls, detectOracle, detectMarkers]
+const DETECTORS: Detector[] = [detectUpgradeability, detectAccessControl, detectUupsAuth, detectUupsMissingUpgrade, detectInitState, detectUncheckedCalls, detectOracle, detectMarkers]
 
 // Shown with every result so a clean scan is never read as "safe".
 export const COVERAGE = {
   checked: [
     'upgradeability and who controls it (EOA, Safe, timelock, DAO)',
     'access control on privileged-looking functions',
-    'UUPS upgrade authorization',
+    'UUPS upgrade authorization and upgrade function',
     'initializer state (on-chain for OZ v5)',
     'unchecked low-level calls',
     'Chainlink price validation',

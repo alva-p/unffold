@@ -213,3 +213,18 @@ describe('baseline and markdown', () => {
     expect(markdown).toContain('## Not checked')
   })
 })
+
+describe('uups-no-upgrade-function', () => {
+  const uups = { pattern: 'UUPS (EIP-1822)', implementationAddress: '0x0000000000000000000000000000000000000002', depth: 0 }
+  const frozen = { 'Frozen.sol': 'contract Frozen { function proxiableUUID() external pure returns (bytes32) { return 0; } }' }
+  const upgradable = { 'Up.sol': 'contract Up { function upgradeToAndCall(address, bytes calldata) external payable {} }' }
+
+  it('flags a UUPS implementation without upgradeTo*', async () => {
+    expect(ids(await runChecks({ sources: frozen, proxy: uups }))).toContain('uups-no-upgrade-function')
+  })
+
+  it('stays quiet when upgradeToAndCall exists or the proxy is not UUPS', async () => {
+    expect(ids(await runChecks({ sources: upgradable, proxy: uups }))).not.toContain('uups-no-upgrade-function')
+    expect(ids(await runChecks({ sources: frozen, proxy: { ...uups, pattern: 'Transparent (EIP-1967)' } }))).not.toContain('uups-no-upgrade-function')
+  })
+})

@@ -50,6 +50,13 @@ When the address is a proxy, unffold analyzes the **implementation** behind it. 
 **How to verify:** confirm only an owner/role/timelock can pass `_authorizeUpgrade`.
 **False positive when:** auth lives in a modifier or helper with an unrecognized name.
 
+### uups-no-upgrade-function
+
+**Detects:** the proxy is UUPS, but neither the implementation nor its dependencies define `upgradeTo` / `upgradeToAndCall`.
+**Why it matters:** in UUPS the upgrade function lives in the implementation. Without it the proxy is frozen for good, including for emergency fixes. This usually happens after an upgrade to a contract that forgot to inherit `UUPSUpgradeable`.
+**How to verify:** look for any function that writes the EIP-1967 implementation slot.
+**False positive when:** freezing was intended, or the upgrade entry point has a non-standard name.
+
 ### uninitialized-instance
 
 **Detects:** reading the OpenZeppelin v5 `Initializable` storage slot (`0xf0c57e16…c6a00`) on the proxy (or contract) returns 0.
