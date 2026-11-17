@@ -625,7 +625,10 @@ function renderWarnings(values: ProfileWarning[]): void {
     title.textContent = warning.title
 
     const severity = document.createElement('span')
-    severity.textContent = warning.confidence ? `${levelWord(warning.severity)} · ${t('confidenceShort')} ${levelWord(warning.confidence)}` : levelWord(warning.severity)
+    const confidence = warning.confidence && ((settings.language ?? 'en') === 'en'
+      ? `${warning.confidence} conf.`
+      : `${t('confidenceShort')} ${levelWord(warning.confidence)}`)
+    severity.textContent = confidence ? `${levelWord(warning.severity)} · ${confidence}` : levelWord(warning.severity)
 
     // what it means / what to do / when it is a false positive, then verifiable evidence
     const section = (label: LabelKey, text: string, className = '') => {
