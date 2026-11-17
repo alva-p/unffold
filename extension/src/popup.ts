@@ -145,6 +145,8 @@ const labels = {
     highRisk: 'High risk',
     reviewNeeded: 'Review needed',
     looksSafer: 'Looks safer',
+    noSignals: 'No signals found',
+    whyNoSignals: 'What this scan covers',
   },
   es: {
     ready: 'Listo',
@@ -196,6 +198,8 @@ const labels = {
     highRisk: 'Riesgo alto',
     reviewNeeded: 'Revisar',
     looksSafer: 'Se ve mejor',
+    noSignals: 'Sin señales',
+    whyNoSignals: 'Qué cubre este análisis',
   },
   pt: {
     ready: 'Pronto',
@@ -247,6 +251,8 @@ const labels = {
     highRisk: 'Risco alto',
     reviewNeeded: 'Revisar',
     looksSafer: 'Parece melhor',
+    noSignals: 'Nenhum sinal',
+    whyNoSignals: 'O que esta análise cobre',
   },
 } satisfies Record<Language, Record<string, string>>
 
@@ -541,7 +547,7 @@ function renderWarnings(values: ProfileWarning[]): void {
     title.textContent = warning.title
 
     const severity = document.createElement('span')
-    severity.textContent = warning.severity
+    severity.textContent = warning.confidence ? `${warning.severity} · ${warning.confidence} conf.` : warning.severity
 
     const body = document.createElement('p')
     body.textContent = warning.body
@@ -556,10 +562,11 @@ function renderWarnings(values: ProfileWarning[]): void {
   }))
 }
 
-function riskCopy(level: ProfileReport['risk']['level']): string {
-  if (level === 'high') return t('highRisk')
-  if (level === 'medium') return t('reviewNeeded')
-  return t('looksSafer')
+function riskCopy(report: ProfileReport): string {
+  if (report.risk.level === 'high') return t('highRisk')
+  if (report.risk.level === 'medium') return t('reviewNeeded')
+  // a clean security scan is "nothing found by these checks", never "safe"
+  return report.profile === 'security' ? t('noSignals') : t('looksSafer')
 }
 
 function summaryText(report: ProfileReport): string {
@@ -570,7 +577,7 @@ function summaryText(report: ProfileReport): string {
   return [
     `${report.title} (${report.profile})`,
     `${report.subtitle}`,
-    `${t('risk')}: ${riskCopy(report.risk.level)}`,
+    `${t('risk')}: ${riskCopy(report)}`,
     report.risk.summary,
     '',
     t('whatToCheck'),
@@ -595,11 +602,12 @@ function renderReport(report: ProfileReport): void {
   reportSubtitle.textContent = report.subtitle
   reportAddress.textContent = shortAddress(report.address)
   reportAddress.title = report.address
-  riskPill.textContent = riskCopy(report.risk.level)
+  riskPill.textContent = riskCopy(report)
   riskPill.className = `riskPill ${report.risk.level}`
   riskCallout.className = `riskCallout ${report.risk.level}`
-  riskIcon.textContent = report.risk.level === 'high' ? '!' : report.risk.level === 'medium' ? '!' : '✓'
-  riskTitle.textContent = report.risk.level === 'high' ? t('whyHighRisk') : report.risk.level === 'medium' ? t('whyReviewNeeded') : t('whyLooksSafer')
+  const cleanSecurity = report.profile === 'security' && report.risk.level === 'low'
+  riskIcon.textContent = report.risk.level === 'low' ? (cleanSecurity ? 'i' : '✓') : '!'
+  riskTitle.textContent = report.risk.level === 'high' ? t('whyHighRisk') : report.risk.level === 'medium' ? t('whyReviewNeeded') : cleanSecurity ? t('whyNoSignals') : t('whyLooksSafer')
   riskSummary.textContent = report.risk.mainReason || report.risk.summary
   renderBadges(report.badges)
   renderFacts(report.facts)

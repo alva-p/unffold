@@ -47,7 +47,7 @@ export function chooseProfile(
   return { profile: 'contract', reason: 'No token, NFT, vault, game, or proxy profile matched' }
 }
 
-async function analysisContractFor(
+export async function analysisContractFor(
   contract: ResolvedContract,
   chainName: string,
   config: Config,

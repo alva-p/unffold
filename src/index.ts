@@ -7,6 +7,7 @@ import { runExport } from './commands/export.js'
 import { runProxy } from './commands/proxy.js'
 import { runRead } from './commands/read.js'
 import { runSecurity } from './commands/security.js'
+import { SEVERITIES, type Severity } from './core/security-checks.js'
 import { runStorage } from './commands/storage.js'
 import { runTree } from './commands/tree.js'
 import { runWatch } from './commands/watch.js'
@@ -58,6 +59,9 @@ program
   .option('--proxy', 'Full proxy analysis')
   .option('--tree', 'Inheritance tree + standards')
   .option('--security', 'Security surface scan')
+  .option('--sarif', 'With --security: print SARIF 2.1.0 (for GitHub code scanning)')
+  .option('--verbose', 'With --security: explain each finding (why, how to verify, false positives)')
+  .option('--fail-on <severity>', 'With --security: exit 1 if any finding is at or above high|medium|low|info')
   .option('--watch <event>', 'Watch contract events live')
   .option('--storage <slot>', 'Read a storage slot or variable name')
   .option('--read <call>', 'Call any view function, e.g. balanceOf(0x...)')
@@ -74,6 +78,9 @@ program
     proxy?: boolean
     tree?: boolean
     security?: boolean
+    sarif?: boolean
+    verbose?: boolean
+    failOn?: string
     watch?: string
     storage?: string
     read?: string
@@ -84,7 +91,7 @@ program
     const isJson = options.json === true
     const isQuiet = options.quiet === true
 
-    if (!isJson && !isQuiet) printBanner()
+    if (!isJson && !isQuiet && options.sarif !== true) printBanner()
 
     const config = loadConfig()
     const chain = options.chain ?? config.defaultChain ?? 'mainnet'
@@ -103,7 +110,15 @@ program
 
     if (options.proxy)   { await runProxy(address, chain, config, options.rpc, isJson); return }
     if (options.tree)    { await runTree(address, chain, config, isJson); return }
-    if (options.security){ await runSecurity(address, chain, config, options.rpc, isJson); return }
+    if (options.security) {
+      const failOn = options.failOn as Severity | undefined
+      if (failOn && !SEVERITIES.includes(failOn)) {
+        console.error(c.danger(`\n  Invalid --fail-on: "${failOn}". Use one of: ${SEVERITIES.join(', ')}\n`))
+        process.exit(1)
+      }
+      await runSecurity(address, chain, config, options.rpc, options.sarif ? 'sarif' : isJson ? 'json' : 'text', failOn, options.verbose === true)
+      return
+    }
     if (options.watch)   { await runWatch(address, options.watch, chain, config, options.rpc); return }
     if (options.storage) { await runStorage(address, options.storage, chain, config, options.rpc, isJson); return }
     if (options.read)    { await runRead(address, options.read, chain, config, options.rpc, isJson); return }

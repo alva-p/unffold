@@ -5,3 +5,5 @@ dist/
 MEMORY.md
 mejoras.md
 unffold-extension-*.zip
+test/fixtures/out/
+test/fixtures/cache/

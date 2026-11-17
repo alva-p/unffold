@@ -120,7 +120,10 @@ unffold <command> [args]
 | `--simple` | Print a short non-technical summary |
 | `--proxy` | Proxy analysis + upgrade history |
 | `--tree` | Inheritance tree + detected standards |
-| `--security` | Security surface scan |
+| `--security` | Security surface scan: triage findings with severity, confidence and false-positive notes |
+| `--verbose` | With `--security`: explain each finding (why it matters, how to verify, false positives) |
+| `--sarif` | With `--security`: SARIF 2.1.0 output for GitHub code scanning |
+| `--fail-on <severity>` | With `--security`: exit 1 if any finding is at or above `high`, `medium`, `low` or `info` |
 | `--read "<fn(args)>"` | Call a view function |
 | `--watch <event\|all>` | Stream live events |
 | `--storage <slot\|name\|mapping>` | Read a storage slot |

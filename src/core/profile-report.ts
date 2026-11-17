@@ -11,7 +11,8 @@ export interface ProfileFact {
 export interface ProfileWarning {
   id: string
   title: string
-  severity: RiskSignal['severity']
+  severity: RiskSignal['severity'] | 'low'
+  confidence?: 'low' | 'medium' | 'high'
   body: string
   recommendation: string
 }
