@@ -135,6 +135,17 @@ unffold <command> [args]
 | `--facets` | Enumerate Diamond (EIP-2535) facets |
 | `--json` | Machine-readable output, no banner or menu |
 
+#### Monitoring upgrades (cron / CI)
+
+Accept the current findings once, then re-run on a schedule. Fingerprints include the implementation address, so after an upgrade (or a new single-key admin) the findings come back and the command exits 1:
+
+```bash
+unffold <proxy> --security --baseline unffold-baseline.json --update-baseline   # once, then edit each "reason"
+unffold <proxy> --security --baseline unffold-baseline.json --fail-on low --quiet || notify "proxy changed"
+```
+
+`unffold <proxy> --proxy` prints the upgrade history and the `unffold diff` command for the last upgrade.
+
 ### Commands
 
 | Command | Description |

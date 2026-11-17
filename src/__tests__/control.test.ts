@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { PublicClient } from 'viem'
+import { getAddress, type PublicClient } from 'viem'
 import { formatDelay, resolveControl } from '../core/control.js'
+import { getUpgradeHistory } from '../core/proxy-detector.js'
 
 // Fake chain: address -> bytecode + view function results
 type Fake = Record<string, { code?: string; views?: Record<string, unknown> }>
@@ -65,5 +66,22 @@ describe('delay wording', () => {
     expect(dao.summary).toContain('delay set by governance votes')
     const unknown = await resolveControl(fakeClient({ [A]: { code: '0x60' } }), 'upgrades', A)
     expect(unknown.summary).toContain('delay unknown')
+  })
+})
+
+describe('upgrade history', () => {
+  it('decodes indexed (EIP-1967) and non-indexed (ZeppelinOS) Upgraded logs, and reports unavailable as null', async () => {
+    const pad = (address: string) => '0x' + address.slice(2).padStart(64, '0')
+    const logs = [
+      { topics: ['0xbc7c', pad(B)], data: '0x', blockNumber: '0x10' },
+      { topics: ['0xbc7c'], data: pad(C), blockNumber: '0x20' },
+    ]
+    const ok = { request: async () => logs } as unknown as PublicClient
+    expect(await getUpgradeHistory(A, ok)).toEqual([
+      { address: getAddress(B), blockNumber: 16n },
+      { address: getAddress(C), blockNumber: 32n },
+    ])
+    const limited = { request: async () => { throw new Error('range too large') } } as unknown as PublicClient
+    expect(await getUpgradeHistory(A, limited)).toBeNull()
   })
 })

@@ -1,6 +1,7 @@
 import type { PublicClient } from 'viem'
 import { getAddress, isAddress } from 'viem'
 import type { ProxyInfo, AbiItem } from '../types.js'
+import { explorerApiBase, fetchWithRetry } from './resolver.js'
 
 const SLOTS = {
   EIP1967_IMPL:  '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc' as `0x${string}`,
@@ -238,25 +239,38 @@ export async function resolveProxyChain(
   return proxy
 }
 
+
+type RawLog = { topics: string[]; data: string; blockNumber: string }
+
+function fromRawLogs(logs: RawLog[]): Array<{ address: string; blockNumber: bigint }> {
+  return logs.map(log => ({
+    address: getAddress('0x' + (log.topics[1] ?? log.data).slice(-40)),
+    blockNumber: BigInt(log.blockNumber),
+  }))
+}
+
+// Etherscan first: public RPCs usually reject eth_getLogs from block 0.
 export async function getUpgradeHistory(
   address: string,
-  client: PublicClient
-): Promise<Array<{ address: string; blockNumber: bigint }>> {
+  client: PublicClient,
+  etherscan?: { url: string; chainId: number; apiKey?: string }
+): Promise<Array<{ address: string; blockNumber: bigint }> | null> {
+  if (etherscan?.apiKey && etherscan.url) {
+    try {
+      const url = `${explorerApiBase(etherscan.url)}?chainid=${etherscan.chainId}&module=logs&action=getLogs&address=${address}&topic0=${UPGRADED_TOPIC}&fromBlock=0&toBlock=latest&apikey=${etherscan.apiKey}`
+      const data = await fetchWithRetry(url) as { status: string; result: RawLog[] | string }
+      if (Array.isArray(data.result)) return fromRawLogs(data.result)
+    } catch {
+      // fall back to the RPC
+    }
+  }
   try {
-    const logs = await client.getLogs({
-      address: address as `0x${string}`,
-      event: {
-        type: 'event',
-        name: 'Upgraded',
-        inputs: [{ name: 'implementation', type: 'address', indexed: true }],
-      },
-      fromBlock: 0n,
-    })
-    return logs.map(log => ({
-      address: '0x' + (log.topics[1] ?? '').slice(-40),
-      blockNumber: log.blockNumber ?? 0n,
-    }))
+    const logs = await client.request({
+      method: 'eth_getLogs',
+      params: [{ address: address as `0x${string}`, topics: [UPGRADED_TOPIC], fromBlock: '0x0', toBlock: 'latest' }],
+    }) as RawLog[]
+    return fromRawLogs(logs)
   } catch {
-    return []
+    return null  // unavailable, not empty
   }
 }

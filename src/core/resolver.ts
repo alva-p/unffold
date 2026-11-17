@@ -1,7 +1,13 @@
 import type { ResolvedContract, AbiItem, Config } from '../types.js'
 import { getChainConfig } from './rpc.js'
 
-async function fetchWithRetry(url: string, retries = 3): Promise<unknown> {
+export function explorerApiBase(explorerApiUrl: string): string {
+  return /etherscan\.io|arbiscan\.io|basescan\.org|bscscan\.com|polygonscan\.com|abscan\.org/.test(explorerApiUrl)
+    ? 'https://api.etherscan.io/v2/api'
+    : explorerApiUrl
+}
+
+export async function fetchWithRetry(url: string, retries = 3): Promise<unknown> {
   for (let i = 0; i < retries; i++) {
     try {
       const res = await fetch(url)
@@ -50,10 +56,7 @@ async function fetchFromEtherscan(
   const chain = getChainConfig(chainName)
   if (!chain.explorerApiUrl) return null
 
-  const apiBase = chain.explorerApiUrl.includes('etherscan.io') || chain.explorerApiUrl.includes('arbiscan.io') || chain.explorerApiUrl.includes('basescan.org') || chain.explorerApiUrl.includes('bscscan.com') || chain.explorerApiUrl.includes('polygonscan.com') || chain.explorerApiUrl.includes('abscan.org')
-    ? 'https://api.etherscan.io/v2/api'
-    : chain.explorerApiUrl
-  const url = `${apiBase}?chainid=${chain.chainId}&module=contract&action=getsourcecode&address=${address}&apikey=${apiKey}`
+  const url = `${explorerApiBase(chain.explorerApiUrl)}?chainid=${chain.chainId}&module=contract&action=getsourcecode&address=${address}&apikey=${apiKey}`
 
   const data = await fetchWithRetry(url) as {
     status: string

@@ -9,6 +9,7 @@ import type { RiskSummary } from '../risk-summary.js'
 export interface ProxyProfileResult {
   report: ProfileReport
   proxy: ProxyInfo | null
+  historyAvailable: boolean
   history: Array<{
     blockNumber: string
     address: string
@@ -109,7 +110,7 @@ export async function analyzeProxyProfile(
   const client = createClient(chainName, config, rpcOverride)
   const contract = await resolveContract(address, chainName, config)
   const proxy = await resolveProxyChain(address, contract.abi, client)
-  const history = proxy ? await getUpgradeHistory(address, client) : []
+  const history = proxy ? await getUpgradeHistory(address, client, { url: chain.explorerApiUrl, chainId: chain.chainId, apiKey: config.etherscanApiKey }) : []
   const riskSummary = proxyRiskSummary(proxy)
   const report = buildProfileReport({
     profile: 'proxy',
@@ -123,14 +124,15 @@ export async function analyzeProxyProfile(
       { label: 'Implementation', value: proxy?.implementationAddress ?? null },
       { label: 'Admin', value: proxy?.adminAddress ?? null },
       { label: 'Nested proxy', value: proxy?.chain?.pattern ?? null },
-      { label: 'Upgrade events', value: history.length },
+      { label: 'Upgrade events', value: history?.length ?? 'unavailable (needs an Etherscan API key)' },
     ],
   })
 
   return {
     report,
     proxy,
-    history: history.map(entry => ({
+    historyAvailable: history !== null,
+    history: (history ?? []).map(entry => ({
       ...entry,
       blockNumber: entry.blockNumber.toString(),
     })),
