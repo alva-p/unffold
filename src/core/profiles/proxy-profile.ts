@@ -1,6 +1,7 @@
 import { getAddress, isAddress } from 'viem'
 import { createClient, getChainConfig } from '../rpc.js'
 import { getUpgradeHistory, resolveProxyChain } from '../proxy-detector.js'
+import { knownBadge } from '../known-tokens.js'
 import { resolveContract } from '../resolver.js'
 import { buildProfileReport, type ProfileReport } from '../profile-report.js'
 import type { Config, ProxyInfo } from '../../types.js'
@@ -112,6 +113,8 @@ export async function analyzeProxyProfile(
   const proxy = await resolveProxyChain(address, contract.abi, client)
   const history = proxy ? await getUpgradeHistory(address, client, { url: chain.explorerApiUrl, chainId: chain.chainId, apiKey: config.etherscanApiKey }) : []
   const riskSummary = proxyRiskSummary(proxy)
+  const known = knownBadge(chain.chainId, address)
+  if (known) riskSummary.badges.push(known)
   const report = buildProfileReport({
     profile: 'proxy',
     title: contract.name,

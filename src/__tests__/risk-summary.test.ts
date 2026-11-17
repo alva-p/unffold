@@ -1,3 +1,4 @@
+import { knownBadge } from '../core/known-tokens.js'
 import { describe, expect, it } from 'vitest'
 import { buildRiskSummary, detectTokenControls } from '../core/risk-summary.js'
 import type { AbiItem, DetectedStandards, ResolvedContract } from '../types.js'
@@ -135,5 +136,28 @@ describe('issuer context', () => {
   it('does not flag the symbol on chains without a known official address', () => {
     const summary = buildRiskSummary(contract({ chainId: 56, address: '0x00000000000000000000000000000000000000aa' }), null, BASE_STANDARDS, { symbol: 'USDC' })
     expect(summary.signals.map(signal => signal.id)).not.toContain('impersonation')
+  })
+})
+
+describe('canonical, bridged and known contracts', () => {
+  it('names bridged USDC on Polygon instead of flagging it as impersonation', () => {
+    const summary = buildRiskSummary(contract({ chainId: 137, address: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174' }), null, BASE_STANDARDS, { symbol: 'USDC' })
+    const ids = summary.signals.map(signal => signal.id)
+    expect(ids).not.toContain('impersonation')
+    expect(ids).toContain('known-token')
+    expect(summary.badges).toContain('Bridged: Polygon PoS bridge (USDC.e)')
+  })
+
+  it('marks canonical tokens as official and catches mixed-case symbol copies', () => {
+    const steth = buildRiskSummary(contract({ address: '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84' }), null, BASE_STANDARDS, { symbol: 'stETH' })
+    expect(steth.badges).toContain('Official: Lido')
+    const fake = buildRiskSummary(contract({ address: '0x00000000000000000000000000000000000000aa' }), null, BASE_STANDARDS, { symbol: 'STETH' })
+    expect(fake.signals.find(signal => signal.id === 'impersonation')?.detail).toContain('0xae7ab96520de3a18e5e111b5eaab095312d7fe84')
+  })
+
+  it('recognizes infrastructure only on chains where the deployment is documented', () => {
+    expect(knownBadge(8453, '0x000000000022D473030F116dDEE9F6B43aC78BA3')).toBe('Known: Uniswap Permit2')
+    expect(knownBadge(1, '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D')).toBe('Known: Uniswap V2 Router')
+    expect(knownBadge(42161, '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D')).toBeNull()
   })
 })
