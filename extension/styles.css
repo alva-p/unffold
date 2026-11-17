@@ -1039,5 +1039,14 @@ dd {
 }
 .controlSection dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0; }
 .controlSection dt { color: var(--muted); font-size: 12px; }
-.controlSection dd { margin: 0; color: var(--soft); font: 12px/1.45 inherit; font-family: inherit; text-align: left; }
+.controlSection dd { margin: 0; color: var(--soft); font-family: inherit; font-size: 12px; line-height: 1.45; text-align: left; }
 .controlSection dd.singleKey { color: #e6b543; }
+
+.reportVerdict {
+  display: block;
+  margin: 10px 13px 0;
+  color: var(--faint);
+  font-size: 11px;
+  text-decoration: none;
+}
+.reportVerdict:hover { color: var(--accent-soft); }

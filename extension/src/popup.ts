@@ -36,6 +36,7 @@ type PageTargets = {
 }
 
 declare const chrome: {
+  runtime?: { getManifest?(): { version: string } }
   storage: ChromeStorage
   tabs: {
     query(queryInfo: { active: boolean; currentWindow: boolean }, callback: (tabs: ChromeTab[]) => void): void
@@ -85,6 +86,7 @@ const riskSummary = document.querySelector<HTMLElement>('#riskSummary')!
 const riskAction = document.querySelector<HTMLElement>('#riskAction')!
 const controlSection = document.querySelector<HTMLElement>('#controlSection')!
 const controlList = document.querySelector<HTMLElement>('#controlList')!
+const reportVerdict = document.querySelector<HTMLAnchorElement>('#reportVerdict')!
 const nftPreview = document.querySelector<HTMLElement>('#nftPreview')!
 const nftPreviewImage = document.querySelector<HTMLImageElement>('#nftPreviewImage')!
 const badges = document.querySelector<HTMLElement>('#badges')!
@@ -148,6 +150,7 @@ const labels = {
     reviewNeeded: 'Review needed',
     noSignals: 'No signals found',
     controlTitle: 'Who controls',
+    reportVerdict: 'Wrong verdict? Report it on GitHub',
     controlUpgrades: 'Upgrades',
     controlOwner: 'Owner',
     whyNoSignals: 'What this scan covers',
@@ -214,6 +217,7 @@ const labels = {
     reviewNeeded: 'Revisar',
     noSignals: 'Sin señales',
     controlTitle: 'Quién controla',
+    reportVerdict: '¿Veredicto incorrecto? Reportalo en GitHub',
     controlUpgrades: 'Actualizaciones',
     controlOwner: 'Owner',
     whyNoSignals: 'Qué cubre este análisis',
@@ -280,6 +284,7 @@ const labels = {
     reviewNeeded: 'Revisar',
     noSignals: 'Nenhum sinal',
     controlTitle: 'Quem controla',
+    reportVerdict: 'Veredito errado? Reporte no GitHub',
     controlUpgrades: 'Atualizações',
     controlOwner: 'Owner',
     whyNoSignals: 'O que esta análise cobre',
@@ -432,6 +437,7 @@ function syncSettingsState(keepPanel = false): void {
   document.querySelector('#warningsTitle')!.textContent = t('warningsTitle')
   document.querySelector('#privacyNote')!.textContent = t('privacyNote')
   document.querySelector('#controlTitle')!.textContent = t('controlTitle')
+  reportVerdict.textContent = t('reportVerdict')
   copySummary.textContent = t('copySummary')
   explorerLink.textContent = t('openExplorer')
   metadataLink.textContent = t('openMetadata')
@@ -659,23 +665,49 @@ function riskCopy(report: ProfileReport): string {
   return t(RISK_COPY[riskState(report)].pill)
 }
 
+// Markdown so it pastes cleanly into issues, notes and chats, with links that can be checked.
 function summaryText(report: ProfileReport): string {
+  const explorer = report.links.find(link => link.label === 'Explorer')?.url
   const warningLines = report.warnings.length > 0
-    ? report.warnings.slice(0, 5).map(warning => `- ${warning.title}: ${warning.recommendation}`).join('\n')
+    ? report.warnings.slice(0, 8).map(warning => {
+      const meta = [warning.severity, warning.confidence && `${warning.confidence} confidence`].filter(Boolean).join(', ')
+      const where = warning.location ? ` \`${warning.location}\`` : ''
+      const docs = warning.docsUrl ? ` ([docs](${warning.docsUrl}))` : ''
+      return `- [ ] **${warning.title}** (${meta})${where}: ${warning.recommendation}${docs}`
+    }).join('\n')
     : t('noWarningsCopy')
 
   return [
-    `${report.title} (${report.profile})`,
-    `${report.subtitle}`,
-    `${t('risk')}: ${riskCopy(report)}`,
-    report.risk.summary,
-    ...(report.control ?? []).map(path => `${t(path.role === 'upgrades' ? 'controlUpgrades' : 'controlOwner')}: ${path.summary}`),
+    `### ${report.title} (${report.profile}): ${riskCopy(report)}`,
+    `${report.subtitle} · ${explorer ? `[\`${report.address}\`](${explorer})` : `\`${report.address}\``}`,
     '',
-    t('whatToCheck'),
+    report.risk.summary,
+    '',
+    ...(report.control ?? []).map(path => `**${t(path.role === 'upgrades' ? 'controlUpgrades' : 'controlOwner')}:** ${path.summary}  `),
+    '',
+    `**${t('whatToCheck')}**`,
     warningLines,
     '',
-    report.links.find(link => link.label === 'Explorer')?.url ?? report.address,
+    `_unffold, read-only scan, ${new Date().toISOString().slice(0, 10)}_`,
   ].join('\n')
+}
+
+// Prefilled GitHub issue: the open-source equivalent of "report an issue", feeds detector calibration.
+function verdictIssueUrl(report: ProfileReport): string {
+  const version = chrome.runtime?.getManifest?.().version ?? 'unknown'
+  const body = [
+    `**Network:** ${report.chain.name} (${report.chain.id})`,
+    `**Address:** ${report.address}`,
+    `**Mode:** ${report.profile}`,
+    `**Verdict shown:** ${riskCopy(report)}`,
+    `**Warnings:** ${report.warnings.map(warning => warning.id).join(', ') || 'none'}`,
+    `**Extension version:** ${version}`,
+    '',
+    '**What is wrong with this verdict, and what did you expect?**',
+    '',
+  ].join('\n')
+  const params = new URLSearchParams({ title: `Wrong verdict: ${report.profile} ${report.address}`, body })
+  return `https://github.com/alva-p/unffold/issues/new?${params}`
 }
 
 function renderReport(report: ProfileReport): void {
@@ -703,6 +735,7 @@ function renderReport(report: ProfileReport): void {
   riskSummary.textContent = report.risk.mainReason || report.risk.summary
   renderBadges(report.badges)
   renderControl(report.control ?? [])
+  reportVerdict.href = verdictIssueUrl(report)
   renderFacts(report.facts)
   renderWarnings(report.warnings)
 
