@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { parseSources, runChecks, shortenPaths } from '../core/security-checks.js'
+import { fingerprint, parseSources, runChecks, shortenPaths } from '../core/security-checks.js'
 import { findingsFor, fixture, ids } from './security-helpers.js'
 import { toSarif } from '../output/sarif.js'
 
@@ -122,6 +124,8 @@ describe('sarif', () => {
       target: { address: '0x0000000000000000000000000000000000000002', name: 'SurfaceVuln', verified: true, file: 'surface/Vuln.sol' },
       proxy: null,
       stats: { stateChanging: 0, privilegedLooking: 0 },
+      block: '123',
+      scannedAt: '2026-11-17T00:00:00.000Z',
       findings,
     })
     const run = sarif.runs[0]
@@ -132,6 +136,14 @@ describe('sarif', () => {
     const initializer = run.results.find(result => result.ruleId === 'unprotected-initializer')!
     expect(initializer.level).toBe('error')
     expect(initializer.locations[0].physicalLocation.region).toEqual({ startLine: 11 })
+    expect(run.tool.driver.rules[0].helpUri).toMatch(/docs\/detectors\.md#/)
+    const prints = run.results.map(result => result.partialFingerprints['unffoldFinding/v1'])
+    expect(new Set(prints).size).toBe(prints.length)
+  })
+
+  it('keeps fingerprints stable when a finding moves to another line', async () => {
+    const [finding] = (await findingsFor(fixture('surface/Vuln.sol'))).filter(f => f.id === 'unprotected-privileged')
+    expect(fingerprint({ ...finding, line: 99 }, 1, '0xAB')).toBe(fingerprint(finding, 1, '0xab'))
   })
 })
 
@@ -148,5 +160,16 @@ describe('presentation helpers', () => {
       'src/Other.sol': '',
     })
     expect(Object.keys(short)).toEqual(['contracts/Token.sol', 'node_modules/@openzeppelin/Ownable.sol', 'src/Other.sol'])
+  })
+})
+
+describe('detector docs', () => {
+  it('documents every finding id in docs/detectors.md', () => {
+    const root = join(__dirname, '../..')
+    const source = readFileSync(join(root, 'src/core/security-checks.ts'), 'utf8')
+    const docs = readFileSync(join(root, 'docs/detectors.md'), 'utf8')
+    const ids = [...new Set([...source.matchAll(/id: '([a-z-]+)'/g)].map(match => match[1]))]
+    expect(ids.length).toBeGreaterThan(10)
+    expect(ids.filter(id => !docs.includes(`### ${id}\n`))).toEqual([])
   })
 })

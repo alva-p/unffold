@@ -7,7 +7,7 @@ import type {
   SourceUnit,
   VariableDeclaration,
 } from '@solidity-parser/parser/dist/src/ast-types'
-import type { PublicClient } from 'viem'
+import { keccak256, toHex, type PublicClient } from 'viem'
 import { analysisContractFor, validateAnalyzeAddress } from './analyzer.js'
 import { resolveProxyChain } from './proxy-detector.js'
 import { resolveContract } from './resolver.js'
@@ -29,6 +29,19 @@ export interface Finding {
   file?: string
   line?: number
   code?: string  // the source line at file:line, trimmed
+  evidence?: string[]  // on-chain reads backing the finding, verifiable by anyone
+}
+
+export const DOCS_URL = 'https://github.com/alva-p/unffold/blob/main/docs/detectors.md'
+
+export function docsUrl(id: string): string {
+  return `${DOCS_URL}#${id}`
+}
+
+// Stable across re-scans and line shifts: keyed by what the finding is, not where it moved to.
+export function fingerprint(finding: Finding, chainId: number, address: string): `0x${string}` {
+  const anchor = finding.code?.replace(/\s+/g, ' ') ?? finding.title
+  return keccak256(toHex(`${chainId}:${address.toLowerCase()}:${finding.id}:${finding.file ?? ''}:${anchor}`))
 }
 
 export interface ParsedContract {
@@ -45,6 +58,7 @@ export interface CheckContext {
   address?: string
   implementationAddress?: string
   chainName?: string
+  blockNumber?: bigint  // pin on-chain reads to one block so the evidence is reproducible
 }
 
 type Detector = (contracts: ParsedContract[], ctx: CheckContext) => Finding[] | Promise<Finding[]>
@@ -116,6 +130,10 @@ const detectUpgradeability: Detector = (_contracts, ctx) => {
     detail: `${proxy.pattern} → implementation ${proxy.implementationAddress}${proxy.adminAddress ? `, admin ${proxy.adminAddress}` : ''}. Logic can change after deployment.`,
     falsePositives: 'Expected for most protocols. The risk depends on who controls upgrades, not on upgradeability itself.',
     recommendation: 'Check whether upgrades are gated by a multisig, timelock, or governance process.',
+    evidence: [
+      proxy.proxySlot ? `storage ${proxy.proxySlot} at ${ctx.address} = ${proxy.implementationAddress}` : `implementation = ${proxy.implementationAddress}`,
+      ...(proxy.adminAddress ? [`admin = ${proxy.adminAddress}`] : []),
+    ],
   }]
 }
 
@@ -255,9 +273,9 @@ function callsFunction(node: BaseASTNode, name: string): boolean {
   return found
 }
 
-async function initializedVersion(client: PublicClient, address: string): Promise<bigint | null> {
+async function initializedVersion(client: PublicClient, address: string, blockNumber?: bigint): Promise<bigint | null> {
   try {
-    const raw = await client.getStorageAt({ address: address as `0x${string}`, slot: OZ5_INITIALIZABLE_SLOT })
+    const raw = await client.getStorageAt({ address: address as `0x${string}`, slot: OZ5_INITIALIZABLE_SLOT, blockNumber })
     return BigInt(raw ?? '0x0') & UINT64_MAX
   } catch {
     return null
@@ -276,8 +294,9 @@ const detectInitState: Detector = async (contracts, ctx) => {
   // slot, so it gets the static check below. Upgrade path: compiler storageLayout (see P7).
   const isOz5 = Object.values(ctx.sources).some(source => source.includes('InitializableStorage'))
   if (isOz5 && ctx.client && ctx.address) {
-    const instance = await initializedVersion(ctx.client, ctx.address)
-    const impl = ctx.proxy && ctx.implementationAddress ? await initializedVersion(ctx.client, ctx.implementationAddress) : null
+    const instance = await initializedVersion(ctx.client, ctx.address, ctx.blockNumber)
+    const impl = ctx.proxy && ctx.implementationAddress ? await initializedVersion(ctx.client, ctx.implementationAddress, ctx.blockNumber) : null
+    const read = (address: string) => `storage ${OZ5_INITIALIZABLE_SLOT} at ${address} = 0 (uint64 _initialized)${ctx.blockNumber ? `, block ${ctx.blockNumber}` : ''}`
     if (instance !== null) {
       const out: Finding[] = []
       if (instance === 0n) {
@@ -289,6 +308,7 @@ const detectInitState: Detector = async (contracts, ctx) => {
           detail: `The OZ v5 Initializable slot at ${ctx.address} reads 0, so ${first.fn.name}() is still callable by whoever calls it first.`,
           falsePositives: 'Deployments that are intentionally left uninitialized until a later, controlled transaction.',
           recommendation: 'Confirm whether this deployment is live; initialization should happen atomically with deployment.',
+          evidence: [read(ctx.address)],
           ...at(first.contract, first.fn),
         })
       }
@@ -301,6 +321,7 @@ const detectInitState: Detector = async (contracts, ctx) => {
           detail: `The implementation ${ctx.implementationAddress} can be initialized by anyone, who then owns the implementation contract itself. Since Cancun this rarely destroys the proxy, but treat it as high if the implementation can reach delegatecall or selfdestruct.`,
           falsePositives: 'Implementations with no privileged logic reachable after initialization.',
           recommendation: 'Implementations should call _disableInitializers() in their constructor.',
+          evidence: [read(ctx.implementationAddress!)],
           ...at(first.contract, first.fn),
         })
       }
@@ -665,6 +686,9 @@ export interface SecurityScan {
   target: { address: string; name: string; verified: boolean; file?: string }
   proxy: ProxyInfo | null
   stats: { stateChanging: number; privilegedLooking: number }
+  // snapshot: results reflect this block; a later upgrade or config change can invalidate them
+  block: string
+  scannedAt: string
   findings: Finding[]
 }
 
@@ -699,6 +723,7 @@ export async function scanSecurity(
   const contract = await resolveContract(address, chainName, config)
   const proxy = await resolveProxyChain(address, contract.abi, client)
   const target = await analysisContractFor(contract, chainName, config, proxy?.implementationAddress ?? null)
+  const blockNumber = await client.getBlockNumber()
 
   const stateChanging = (target.abi ?? []).filter(isStateChanging)
   const sources = sourcesOf(target)
@@ -710,6 +735,7 @@ export async function scanSecurity(
     address,
     implementationAddress: proxy?.implementationAddress,
     chainName,
+    blockNumber,
   })
 
   return {
@@ -727,6 +753,8 @@ export async function scanSecurity(
       stateChanging: stateChanging.length,
       privilegedLooking: stateChanging.filter(fn => fn.name && looksPrivileged(fn.name)).length,
     },
+    block: blockNumber.toString(),
+    scannedAt: new Date().toISOString(),
     findings,
   }
 }

@@ -1,5 +1,5 @@
 import ora from 'ora'
-import { atLeast, COVERAGE, scanSecurity, type Finding, type SecurityScan, type Severity } from '../core/security-checks.js'
+import { atLeast, COVERAGE, docsUrl, scanSecurity, type Finding, type SecurityScan, type Severity } from '../core/security-checks.js'
 import { findingLocation } from '../core/security-report.js'
 import { c } from '../output/colors.js'
 import { addressLink } from '../output/links.js'
@@ -33,6 +33,7 @@ function explain(finding: Finding): void {
   console.log(`${INDENT}${finding.detail}`)
   console.log(`${INDENT}${c.muted('verify: ' + finding.recommendation)}`)
   console.log(`${INDENT}${c.dim('false positive if: ' + finding.falsePositives)}`)
+  console.log(`${INDENT}${c.dim('docs: ' + docsUrl(finding.id))}`)
 }
 
 // Consecutive findings with the same id share one header (findings are sorted by severity).
@@ -55,6 +56,7 @@ function printFindings(findings: Finding[], verbose: boolean): void {
       if (group.length > 1 && verbose) console.log(`${INDENT}${c.muted(finding.title)}`)
       const where = whereLine(finding)
       if (where) console.log(where)
+      for (const line of finding.evidence ?? []) console.log(`${INDENT}${c.dim('on-chain: ' + line)}`)
     }
     if (verbose) explain(first)
     if (verbose || group.length > 1) console.log()
@@ -122,6 +124,7 @@ export async function runSecurity(
       console.log(`  ${c.muted('proxy'.padEnd(10))}${scan.proxy.pattern}${scan.proxy.adminAddress ? `  admin ${link(scan.proxy.adminAddress)}` : ''}`)
       console.log(`  ${c.muted('analyzed'.padEnd(10))}${scan.target.name}  ${link(scan.target.address)}  ${c.dim('(implementation)')}`)
     }
+    console.log(`  ${c.muted('as of'.padEnd(10))}block ${scan.block}  ${c.dim(scan.scannedAt.replace('T', ' ').slice(0, 16) + ' UTC')}${scan.proxy ? c.dim('  · reflects the current implementation; an upgrade can change it') : ''}`)
     console.log(`  ${c.muted('source'.padEnd(10))}${scan.target.verified ? c.success('verified') : c.warn('unverified')}  ${c.dim(`${scan.stats.stateChanging} state-changing fns, ${scan.stats.privilegedLooking} privileged-looking`)}`)
     console.log()
 

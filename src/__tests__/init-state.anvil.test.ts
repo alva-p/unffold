@@ -74,6 +74,7 @@ describe('initializer state on Anvil', () => {
       ['upgradeable', 'medium', 'high'],
       ['uninitialized-implementation', 'medium', 'high'],
     ])
+    expect(findings[0].evidence?.[0]).toContain(`at ${proxy} = 0`)
   })
 
   it('stays quiet when the proxy is initialized atomically and the implementation is locked', async () => {

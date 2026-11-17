@@ -96,7 +96,7 @@ After the fingerprint, `unffold` drops into an interactive menu so you can keep 
 - **Diamond facets** — enumerate all EIP-2535 facets and map selectors to function names
 - **Trace** — decode calldata and events from any transaction; auto-resolves proxy implementation ABIs
 - **Inheritance tree** — full parent chain parsed from Solidity source
-- **Security surface** — upgradeability, `selfdestruct`, `tx.origin`, `delegatecall`, reentrancy guards, unprotected privileged functions
+- **Security triage** — upgradeability, access control, UUPS upgrade authorization, initializer state (read on-chain), unchecked low-level calls, Chainlink oracle checks. Each finding has severity, confidence, `file:line`, on-chain evidence and false-positive notes ([detector docs](docs/detectors.md)). Triage signals to verify, not a safety guarantee
 - **Read state** — call any `view` function by name with arguments
 - **Watch events** — stream decoded events live to the terminal
 - **Inspect storage** — read any slot by index, variable name, or mapping key
