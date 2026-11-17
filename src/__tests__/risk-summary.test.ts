@@ -113,3 +113,27 @@ describe('capability vs current state', () => {
     expect(isPaused.signals.find(signal => signal.id === 'pause-controls')).toMatchObject({ severity: 'high', label: 'Transfers are paused right now' })
   })
 })
+
+describe('issuer context', () => {
+  const usdc = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
+  const issuerAbi = [fn('mint'), fn('pause'), fn('blacklist')]
+  const proxy = { pattern: 'Transparent', implementationAddress: '0x0000000000000000000000000000000000000002', adminAddress: '0x0000000000000000000000000000000000000003', depth: 0 }
+
+  it('presents the official USDC powers as issuer controls, not high risk', () => {
+    const summary = buildRiskSummary(contract({ address: usdc, abi: issuerAbi }), proxy, { ...BASE_STANDARDS, ownable: true }, { symbol: 'USDC' })
+    expect(summary.overall).toBe('medium')
+    expect(summary.badges).toContain('Known issuer: Circle')
+    expect(summary.signals.find(signal => signal.id === 'blacklist-controls')?.severity).toBe('info')
+  })
+
+  it('flags a token copying the USDC symbol at another address', () => {
+    const summary = buildRiskSummary(contract({ address: '0x00000000000000000000000000000000000000aa' }), null, BASE_STANDARDS, { symbol: 'usdc' })
+    expect(summary.overall).toBe('high')
+    expect(summary.signals.map(signal => signal.id)).toContain('impersonation')
+  })
+
+  it('does not flag the symbol on chains without a known official address', () => {
+    const summary = buildRiskSummary(contract({ chainId: 56, address: '0x00000000000000000000000000000000000000aa' }), null, BASE_STANDARDS, { symbol: 'USDC' })
+    expect(summary.signals.map(signal => signal.id)).not.toContain('impersonation')
+  })
+})

@@ -1,4 +1,5 @@
 import type { AbiItem, DetectedStandards, ProxyInfo, ResolvedContract } from '../types.js'
+import { impersonatedToken, knownToken } from './known-tokens.js'
 
 export type RiskSeverity = 'ok' | 'info' | 'medium' | 'high'
 export type OverallRisk = 'low' | 'medium' | 'high'
@@ -225,6 +226,44 @@ export function standardsToRiskLabels(standards: DetectedStandards): string[] {
 export interface CurrentState {
   owner?: string | null
   paused?: boolean | null
+  symbol?: string | null
+}
+
+const ISSUER_CONTROLS = new Set(['upgradeable', 'admin-roles', 'mint-controls', 'pause-controls', 'blacklist-controls'])
+
+// Known issuers keep their facts but as trust assumptions; symbol copies at other addresses are flagged.
+function applyIssuerContext(signals: SignalInput[], contract: ResolvedContract, symbol?: string | null): string | null {
+  const known = knownToken(contract.chainId, contract.address)
+  if (known) {
+    for (const signal of signals) {
+      if (!ISSUER_CONTROLS.has(signal.id)) continue
+      signal.severity = 'info'
+      signal.detail = `Expected issuer control. ${signal.detail}`
+    }
+    signals.push({
+      id: 'known-issuer',
+      label: `Official ${known.symbol} by ${known.issuer}`,
+      severity: 'medium',
+      detail: `${known.issuer} can ${known.powers}. This is expected for a regulated stablecoin: holding it means trusting the issuer.`,
+      meaning: `This is the official ${known.symbol} contract on this network.`,
+      whyItMatters: `${known.issuer} can ${known.powers}. Expected for a regulated stablecoin, but you are trusting the issuer.`,
+      recommendation: `Treat these as issuer powers, not a scam signal. Read ${known.issuer}'s terms if freezes matter to you.`,
+    })
+    return known.issuer
+  }
+  const copy = impersonatedToken(contract.chainId, contract.address, symbol)
+  if (copy) {
+    signals.push({
+      id: 'impersonation',
+      label: `Not the official ${copy.token.symbol} on this network`,
+      severity: 'high',
+      detail: `Official ${copy.token.symbol} (${copy.token.issuer}) here is ${copy.official}.`,
+      meaning: `This token uses the ${copy.token.symbol} symbol but is not ${copy.token.issuer}'s contract.`,
+      whyItMatters: `Scam tokens copy well-known symbols to look legitimate. Bridged versions also exist, but they are not ${copy.token.issuer}'s official token.`,
+      recommendation: `Compare with the official address ${copy.official} before accepting or buying it.`,
+    })
+  }
+  return null
 }
 
 const OWNER_CONTROLS = new Set(['mint-controls', 'pause-controls', 'blacklist-controls', 'tax-controls', 'trading-gates'])
@@ -379,6 +418,7 @@ export function buildRiskSummary(
   }
 
   if (state) applyCurrentState(signals, standards, state)
+  const issuer = applyIssuerContext(signals, contract, state?.symbol)
   const enrichedSignals = signals.map(enrichSignal)
   const overall = maxRisk(enrichedSignals)
   const score = riskScore(enrichedSignals)
@@ -391,7 +431,7 @@ export function buildRiskSummary(
     score,
     mainReason,
     summary: summaryFor(overall, mainReason),
-    badges: badgesFor(standardsLabels, proxy, contract),
+    badges: [...badgesFor(standardsLabels, proxy, contract), ...(issuer ? [`Known issuer: ${issuer}`] : [])],
     verified: contract.isVerified,
     proxy: {
       detected: Boolean(proxy),

@@ -163,7 +163,7 @@ export async function analyzeTokenProfile(
       }
     : contract
   const standards = detectStandards(analysisContract.abi || [], analysisContract.sourceCode)
-  const riskSummary = buildRiskSummary(analysisContract, proxy, standards, { owner: metadata.owner, paused })
+  const riskSummary = buildRiskSummary(analysisContract, proxy, standards, { owner: metadata.owner, paused, symbol: metadata.symbol })
   const title = metadata.name ?? contract.name
   const subtitle = [metadata.symbol, chain.name].filter(Boolean).join(' · ')
   const report = buildProfileReport({
