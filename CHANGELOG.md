@@ -30,6 +30,7 @@ The CLI (`unfold-evm` on npm, tags `vX.Y.Z`) and the Chrome extension (tags `ext
 - Warnings, control paths and labels in Spanish and Portuguese
 - Copy summary as a Markdown checklist; "Wrong verdict?" link opens a prefilled GitHub issue
 - Privacy note in the popup
+- Compact layout once a result is shown, translated and color-coded badges (official, issuer, bridged, single-key admin), optional-key hint on first run
 
 ## Extension 0.1.2
 
