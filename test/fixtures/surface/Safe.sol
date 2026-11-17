@@ -58,3 +58,12 @@ contract SurfaceSafe {
         require(msg.sender == owner, "not owner");
     }
 }
+
+contract HelperChecksSender {
+    mapping(address => uint256) public shares;
+
+    function removeLiquidity(uint256 amount) public { shares[msg.sender] -= amount; }
+
+    // auth lives one level down, in removeLiquidity
+    function removeLiquidityETH(uint256 amount) external { removeLiquidity(amount); }
+}

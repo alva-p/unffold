@@ -194,6 +194,20 @@ function hasInitFlagInBody(fn: FunctionDefinition): boolean {
   return found
 }
 
+// One level into same-contract helpers, e.g. Uniswap's removeLiquidityETH → removeLiquidity, which uses msg.sender.
+// ponytail: one level, same contract only; inherited helpers still count as unchecked.
+function callsAuthHelper(contract: ParsedContract, fn: FunctionDefinition): boolean {
+  const helpers = new Map(functionsOf(contract).filter(other => other !== fn && other.name).map(other => [other.name!, other]))
+  let found = false
+  visit(fn.body!, {
+    FunctionCall(call) {
+      const helper = call.expression.type === 'Identifier' ? helpers.get(call.expression.name) : undefined
+      if (helper && (helper.modifiers.some(modifier => GUARD_MODIFIER.test(modifier.name)) || hasAuthInBody(helper))) found = true
+    },
+  })
+  return found
+}
+
 const detectAccessControl: Detector = contracts => {
   const out: Finding[] = []
   for (const contract of reportable(contracts)) {
@@ -203,7 +217,7 @@ const detectAccessControl: Detector = contracts => {
       if (fn.stateMutability === 'view' || fn.stateMutability === 'pure' || fn.stateMutability === 'constant') continue
       if (!looksPrivileged(fn.name)) continue
       if (fn.modifiers.some(modifier => GUARD_MODIFIER.test(modifier.name))) continue
-      if (hasAuthInBody(fn)) continue
+      if (hasAuthInBody(fn) || callsAuthHelper(contract, fn)) continue
 
       const isInit = /^initiali[sz]e|^init$/.test(fn.name)
       if (isInit && hasInitFlagInBody(fn)) continue
