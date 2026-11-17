@@ -91,7 +91,7 @@ After the fingerprint, `unffold` drops into an interactive menu so you can keep 
 ## CLI Features
 
 - **Fingerprint** — name, standards (ERC-20, ERC-721, ERC-4626 …), compiler, license, balance, total supply
-- **Proxy analysis** — detects EIP-1967 Transparent, UUPS, Beacon, Diamond, Minimal Proxy; shows implementation address, admin, and upgrade history
+- **Proxy analysis** — detects EIP-1967 Transparent, UUPS, Beacon, Diamond, Minimal Proxy, EIP-897 (Aragon AppProxy, e.g. Lido); shows implementation address, admin, and upgrade history
 - **Diff** — compare ABI and storage layout between two contracts or two proxy implementations
 - **Diamond facets** — enumerate all EIP-2535 facets and map selectors to function names
 - **Trace** — decode calldata and events from any transaction; auto-resolves proxy implementation ABIs

@@ -81,3 +81,13 @@ describe('sepolia — test contract', () => {
     expect(block).toBeGreaterThan(0n)
   }, 15_000)
 })
+
+describe('mainnet — Lido stETH (EIP-897 Aragon AppProxy)', () => {
+  it('resolves the implementation through the Aragon kernel', async () => {
+    const address = '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84'
+    const contract = await resolveContract(address, 'mainnet', config)
+    const proxy = await resolveProxyChain(address, contract.abi, createClient('mainnet', config))
+    expect(proxy?.pattern).toBe('EIP-897 (Aragon AppProxy)')
+    expect(proxy?.adminAddress).toBe('0xb8FFC3Cd6e7Cf5a098A1c92F48009765B24088Dc')
+  }, 30_000)
+})

@@ -180,6 +180,31 @@ export async function detectProxy(
     }
   }
 
+  // 8. EIP-897 delegate proxy: implementation() + proxyType() (e.g. Aragon AppProxy, used by Lido stETH).
+  // Aragon resolves the implementation through the DAO Kernel, which is what controls upgrades.
+  if (hasFunction(abi, 'implementation') && hasFunction(abi, 'proxyType')) {
+    try {
+      const view = (name: string, type: 'address' | 'uint256') => client.readContract({
+        address: addr,
+        abi: [{ type: 'function', name, inputs: [], outputs: [{ name: '', type }], stateMutability: 'view' }],
+        functionName: name,
+      })
+      const implAddr = await view('implementation', 'address') as string
+      const proxyType = await view('proxyType', 'uint256') as bigint
+      const kernel = hasFunction(abi, 'kernel') ? await view('kernel', 'address').catch(() => null) as string | null : null
+      if (isAddress(implAddr)) {
+        return {
+          pattern: kernel ? 'EIP-897 (Aragon AppProxy)' : proxyType === 2n ? 'EIP-897 upgradeable' : 'EIP-897 forwarding',
+          implementationAddress: implAddr,
+          adminAddress: kernel && isAddress(kernel) ? kernel : undefined,
+          depth,
+        }
+      }
+    } catch {
+      // not EIP-897
+    }
+  }
+
   return null
 }
 
